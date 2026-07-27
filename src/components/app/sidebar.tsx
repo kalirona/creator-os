@@ -1,0 +1,130 @@
+'use client'
+import { motion } from 'framer-motion'
+import { ChevronLeft, Sparkles, Plus, Crown } from 'lucide-react'
+import { NAV_GROUPS } from '@/lib/nav'
+import { useAppStore } from '@/store/app-store'
+import { cn } from '@/lib/utils'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+
+export function Sidebar() {
+  const { activeModule, setActiveModule, sidebarCollapsed, toggleSidebar } = useAppStore()
+
+  return (
+    <aside
+      className={cn(
+        'relative z-30 flex h-full flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-300 ease-in-out',
+        sidebarCollapsed ? 'w-[68px]' : 'w-[248px]'
+      )}
+    >
+      {/* Brand */}
+      <div className="flex h-16 items-center gap-2.5 px-4 border-b border-sidebar-border">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/20">
+          <Sparkles className="h-5 w-5 text-primary-foreground" />
+        </div>
+        {!sidebarCollapsed && (
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold tracking-tight leading-none">CreatorOS</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Scale Plan</p>
+          </div>
+        )}
+        <button
+          onClick={toggleSidebar}
+          className="absolute -right-3 top-20 z-40 hidden h-6 w-6 items-center justify-center rounded-full border bg-card shadow-md md:flex hover:bg-accent transition"
+          aria-label="Toggle sidebar"
+        >
+          <ChevronLeft className={cn('h-3.5 w-3.5 transition-transform', sidebarCollapsed && 'rotate-180')} />
+        </button>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto scroll-thin px-3 py-4 space-y-6">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.title}>
+            {!sidebarCollapsed && (
+              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                {group.title}
+              </p>
+            )}
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon
+                const active = activeModule === item.id
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveModule(item.id)}
+                    title={sidebarCollapsed ? item.label : undefined}
+                    className={cn(
+                      'group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all',
+                      active
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
+                      sidebarCollapsed && 'justify-center'
+                    )}
+                  >
+                    {active && (
+                      <motion.div
+                        layoutId="sidebar-active"
+                        className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary"
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      />
+                    )}
+                    <Icon className={cn('h-[18px] w-[18px] shrink-0', active && 'text-primary')} />
+                    {!sidebarCollapsed && (
+                      <>
+                        <span className="flex-1 text-left truncate">{item.label}</span>
+                        {item.badge && (
+                          <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-semibold uppercase bg-primary/10 text-primary">
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      {/* Credits + upgrade */}
+      <div className="border-t border-sidebar-border p-3 space-y-2">
+        {!sidebarCollapsed && (
+          <div className="rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/15 p-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Crown className="h-4 w-4 text-primary" />
+              <span className="text-xs font-semibold">AI Credits</span>
+            </div>
+            <p className="text-lg font-bold tabular-nums">4,280</p>
+            <div className="mt-2 h-1.5 w-full rounded-full bg-primary/10 overflow-hidden">
+              <div className="h-full w-[68%] rounded-full bg-gradient-to-r from-primary to-primary/60" />
+            </div>
+            <Button size="sm" className="mt-2.5 w-full h-7 text-xs">
+              <Plus className="h-3 w-3 mr-1" /> Buy credits
+            </Button>
+          </div>
+        )}
+        <button
+          onClick={() => setActiveModule('settings')}
+          className={cn(
+            'flex w-full items-center gap-2.5 rounded-lg p-2 hover:bg-sidebar-accent/50 transition',
+            sidebarCollapsed && 'justify-center'
+          )}
+        >
+          <Avatar className="h-8 w-8 ring-2 ring-border">
+            <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">AR</AvatarFallback>
+          </Avatar>
+          {!sidebarCollapsed && (
+            <div className="flex-1 text-left min-w-0">
+              <p className="text-xs font-semibold truncate">Alex Rivera</p>
+              <p className="text-[10px] text-muted-foreground truncate">Owner</p>
+            </div>
+          )}
+        </button>
+      </div>
+    </aside>
+  )
+}

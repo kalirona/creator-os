@@ -1,0 +1,271 @@
+// CreatorOS — Multi-tenant creator platform schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  avatarUrl     String?
+  bio           String?
+  role          String   @default("OWNER") // global account role
+  credits       Int      @default(500)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  memberships   WorkspaceMember[]
+  posts         CommunityPost[]
+  comments      CommunityComment[]
+  enrollments   Enrollment[]
+  orders        Order[]
+  aiConversations AiConversation[]
+  creditTxns    CreditTransaction[]
+}
+
+model Workspace {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  logoUrl       String?
+  plan          String   @default("PRO") // FREE | PRO | SCALE | ENTERPRISE
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  members       WorkspaceMember[]
+  courses       Course[]
+  products      Product[]
+  posts         CommunityPost[]
+  customers     Customer[]
+  emailCampaigns EmailCampaign[]
+  affiliates    Affiliate[]
+  pages         WebPage[]
+  memberships   MembershipPlan[]
+}
+
+model WorkspaceMember {
+  id           String   @id @default(cuid())
+  userId       String
+  workspaceId  String
+  role         String   @default("MEMBER") // OWNER|ADMIN|MANAGER|INSTRUCTOR|MODERATOR|MEMBER|STUDENT|AFFILIATE|GUEST
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+}
+
+model Course {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  title        String
+  description  String
+  thumbnailUrl String?
+  category     String   @default("Marketing")
+  price        Float    @default(0)
+  level        String   @default("BEGINNER") // BEGINNER|INTERMEDIATE|ADVANCED
+  status       String   @default("PUBLISHED") // DRAFT|PUBLISHED|ARCHIVED
+  rating       Float    @default(0)
+  studentsCount Int     @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sections     Section[]
+  enrollments  Enrollment[]
+}
+
+model Section {
+  id          String   @id @default(cuid())
+  courseId     String
+  title       String
+  position    Int      @default(0)
+  lessons     Lesson[]
+
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+model Lesson {
+  id          String   @id @default(cuid())
+  sectionId   String
+  title       String
+  content     String
+  type        String   @default("VIDEO") // VIDEO|TEXT|PDF|AUDIO|QUIZ
+  duration    Int      @default(0) // minutes
+  position    Int      @default(0)
+  isPreview   Boolean  @default(false)
+
+  section     Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+}
+
+model Enrollment {
+  id          String   @id @default(cuid())
+  userId      String
+  courseId    String
+  progress    Float    @default(0)
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  name         String
+  description  String
+  coverUrl     String?
+  type         String   @default("DIGITAL") // DIGITAL|BUNDLE|MEMBERSHIP|COURSE
+  price        Float
+  compareAt    Float?
+  fileUrl      String?
+  salesCount   Int      @default(0)
+  rating       Float    @default(0)
+  status       String   @default("ACTIVE") // ACTIVE|DRAFT|ARCHIVED
+  createdAt    DateTime @default(now())
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  orders       Order[]
+}
+
+model Order {
+  id           String   @id @default(cuid())
+  userId       String
+  workspaceId  String
+  productId    String?
+  amount       Float
+  currency     String   @default("USD")
+  status       String   @default("COMPLETED") // PENDING|COMPLETED|REFUNDED|FAILED
+  customerEmail String
+  customerName String
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product      Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+}
+
+model CommunityPost {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  userId       String
+  category     String   @default("General")
+  title        String
+  content      String
+  likesCount   Int      @default(0)
+  commentsCount Int     @default(0)
+  isPinned     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments     CommunityComment[]
+}
+
+model CommunityComment {
+  id          String   @id @default(cuid())
+  postId      String
+  userId      String
+  content     String
+  createdAt   DateTime @default(now())
+
+  post        CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Customer {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  name         String
+  email        String
+  tags         String   @default("")
+  ltv          Float    @default(0)
+  ordersCount  Int      @default(0)
+  status       String   @default("ACTIVE") // ACTIVE|CHURNED|LEAD
+  createdAt    DateTime @default(now())
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model EmailCampaign {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  name         String
+  subject      String
+  type         String   @default("BROADCAST") // BROADCAST|AUTOMATION|SEQUENCE
+  status       String   @default("DRAFT") // DRAFT|SCHEDULED|SENT
+  recipients   Int      @default(0)
+  openRate     Float    @default(0)
+  clickRate    Float    @default(0)
+  createdAt    DateTime @default(now())
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model Affiliate {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  name         String
+  email        String
+  code         String   @unique
+  clicks       Int      @default(0)
+  conversions  Int      @default(0)
+  earnings     Float    @default(0)
+  commissionRate Float  @default(0.3)
+  status       String   @default("ACTIVE")
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model WebPage {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  title        String
+  slug         String
+  type         String   @default("LANDING") // LANDING|SALES|HOME|ABOUT|CONTACT|BLOG|PRICING
+  status       String   @default("PUBLISHED")
+  visits       Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model MembershipPlan {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  name         String
+  price        Float
+  interval     String   @default("MONTHLY") // MONTHLY|YEARLY|LIFETIME
+  members      Int      @default(0)
+  status       String   @default("ACTIVE")
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model AiConversation {
+  id           String   @id @default(cuid())
+  userId       String
+  tool         String   @default("CHAT") // CHAT|COURSE|LESSON|EMAIL|SALES|BLOG|SOCIAL|SCRIPT
+  title        String
+  messages     String   @default("[]") // JSON array
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CreditTransaction {
+  id           String   @id @default(cuid())
+  userId       String
+  amount       Int      // negative = spent, positive = purchased
+  reason       String
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
