@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 const TICKETS = [
@@ -50,12 +51,13 @@ export function SupportModule() {
         <Card>
           <CardHeader className="pb-3 flex-row items-center justify-between">
             <CardTitle className="text-base">Support Tickets</CardTitle>
-            <Button size="sm"><Plus className="h-4 w-4 mr-1.5" /> New Ticket</Button>
+            <Button size="sm" onClick={() => toast.success('New ticket form opened', { description: 'Describe your issue and we will respond within 2 hours.' })}><Plus className="h-4 w-4 mr-1.5" /> New Ticket</Button>
           </CardHeader>
           <CardContent className="space-y-1.5">
             <div className="relative mb-2"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search tickets..." className="pl-9" /></div>
             {TICKETS.map((t, i) => (
               <motion.div key={t.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
+                onClick={() => toast.info(`Opening ticket ${t.id}`, { description: t.subject })}
                 className="group flex items-center gap-3 rounded-lg p-3 hover:bg-muted/50 transition cursor-pointer">
                 <Avatar className="h-8 w-8"><AvatarFallback className="bg-muted text-[10px]">{t.customer.split(' ').map((n) => n[0]).join('').slice(0, 2)}</AvatarFallback></Avatar>
                 <div className="flex-1 min-w-0">
@@ -77,7 +79,7 @@ export function SupportModule() {
               {HELP_CATS.map((c) => {
                 const Icon = c.icon
                 return (
-                  <button key={c.label} className="flex w-full items-center gap-2.5 rounded-lg p-2.5 hover:bg-muted/50 transition text-left">
+                  <button key={c.label} onClick={() => toast.info(`Browsing: ${c.label}`, { description: `${c.count} articles available` })} className="flex w-full items-center gap-2.5 rounded-lg p-2.5 hover:bg-muted/50 transition text-left">
                     <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg', c.color)}><Icon className="h-4 w-4" /></div>
                     <span className="flex-1 text-xs font-medium">{c.label}</span>
                     <span className="text-[10px] text-muted-foreground">{c.count} articles</span>
@@ -90,7 +92,7 @@ export function SupportModule() {
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground"><MessageCircle className="h-4 w-4" /></div><div><p className="text-sm font-semibold">Live Chat</p><p className="text-[10px] text-emerald-500 flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Online now</p></div></div>
               <p className="text-xs text-muted-foreground mt-2">Average response time: under 2 minutes during business hours.</p>
-              <Button size="sm" className="mt-3 w-full"><Send className="h-3.5 w-3.5 mr-1.5" />Start a chat</Button>
+              <Button size="sm" className="mt-3 w-full" onClick={() => toast.success('Live chat started', { description: 'A support agent will join shortly.' })}><Send className="h-3.5 w-3.5 mr-1.5" />Start a chat</Button>
             </CardContent>
           </Card>
         </div>

@@ -10,7 +10,9 @@ import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
+import { CreateDialog } from '@/components/app/create-dialog'
 import { useAppStore } from '@/store/app-store'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 interface Lesson { id: string; title: string; type: string; duration: number; isPreview: boolean; content: string }
@@ -40,6 +42,7 @@ export function CoursesModule() {
   const { data: courses, loading } = useApi<Course[]>('/api/data/courses')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Course | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
   const setActiveModule = useAppStore((s) => s.setActiveModule)
 
   if (selected) {
@@ -62,7 +65,7 @@ export function CoursesModule() {
           <Button variant="outline" size="sm" onClick={() => setActiveModule('ai-studio')}>
             <Sparkles className="h-4 w-4 mr-1.5 text-primary" /> Generate with AI
           </Button>
-          <Button size="sm"><Plus className="h-4 w-4 mr-1.5" /> New Course</Button>
+          <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1.5" /> New Course</Button>
         </div>
       </div>
 
@@ -125,6 +128,28 @@ export function CoursesModule() {
           ))}
         </div>
       )}
+      <CreateDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        config={{
+          title: 'New Course',
+          description: 'Create a new course. You can add lessons and sections after creation.',
+          aiHint: 'Want AI to design the full course outline for you? Use the Course Generator.',
+          submitLabel: 'Create course',
+          fields: [
+            { name: 'title', label: 'Course title', type: 'text', placeholder: 'e.g. Mastering Notion for Creators', required: true },
+            { name: 'description', label: 'Short description', type: 'textarea', placeholder: 'What will students learn?' },
+            { name: 'category', label: 'Category', type: 'select', defaultValue: 'Marketing', options: [
+              { value: 'Marketing', label: 'Marketing' }, { value: 'YouTube', label: 'YouTube' }, { value: 'Community', label: 'Community' },
+              { value: 'Email', label: 'Email' }, { value: 'Productivity', label: 'Productivity' }, { value: 'AI', label: 'AI' },
+            ] },
+            { name: 'level', label: 'Level', type: 'select', defaultValue: 'BEGINNER', options: [
+              { value: 'BEGINNER', label: 'Beginner' }, { value: 'INTERMEDIATE', label: 'Intermediate' }, { value: 'ADVANCED', label: 'Advanced' },
+            ] },
+            { name: 'price', label: 'Price (USD)', type: 'number', defaultValue: '99', placeholder: '99' },
+          ],
+        }}
+      />
     </div>
   )
 }
@@ -212,7 +237,7 @@ function CourseDetail({ course, onBack }: { course: Course; onBack: () => void }
             </div>
             <div className="flex items-center justify-between mb-3 pb-3 border-b">
               <span className="text-2xl font-bold text-primary">{course.price === 0 ? 'Free' : formatCurrency(course.price)}</span>
-              <Button size="sm">Enroll</Button>
+              <Button size="sm" onClick={() => toast.success(`Enrolled in "${course.title}"!`, { description: course.price === 0 ? 'You now have full access.' : `Checkout complete — ${formatCurrency(course.price)} charged.` })}>Enroll</Button>
             </div>
             <ScrollArea className="h-[420px] scroll-thin -mr-2 pr-2">
               <div className="space-y-4">

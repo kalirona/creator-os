@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 interface Data {
@@ -70,7 +71,7 @@ export function StoreModule() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search invoices..." className="pl-9" />
             </div>
-            <Button size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button>
+            <Button size="sm" onClick={() => toast.success('Export started', { description: 'Your invoices CSV will download shortly.' })}><Download className="h-4 w-4 mr-1.5" />Export</Button>
           </div>
           <Card><CardContent className="p-0">
             <div className="hidden sm:grid grid-cols-12 gap-2 px-4 py-2.5 border-b text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -94,7 +95,7 @@ export function StoreModule() {
             <CardContent className="p-4">
               <div className="flex items-end gap-2 mb-4">
                 <div className="flex-1"><label className="text-xs font-medium">Coupon code</label><Input value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} placeholder="SUMMER30" className="mt-1 font-mono" /></div>
-                <Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Create</Button>
+                <Button size="sm" onClick={() => { if (!coupon.trim()) { toast.error('Enter a coupon code first'); return } toast.success(`Coupon "${coupon}" created!`, { description: '20% discount · 1000 use limit · Active' }); setCoupon('') }}><Plus className="h-4 w-4 mr-1.5" />Create</Button>
               </div>
               <div className="space-y-2">
                 {coupons.map((c) => (
@@ -118,7 +119,7 @@ export function StoreModule() {
                 <div key={t.r} className="rounded-lg border p-3"><p className="text-xs font-semibold">{t.r}</p><p className="text-xs text-muted-foreground mt-0.5">{t.v}</p></div>
               ))}
             </div>
-            <Button size="sm">Configure tax regions</Button>
+            <Button size="sm" onClick={() => toast.info('Tax region settings opened', { description: 'Configure rates for US states, EU VAT, and more.' })}>Configure tax regions</Button>
           </CardContent></Card>
         </TabsContent>
       </Tabs>

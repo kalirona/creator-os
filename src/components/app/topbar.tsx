@@ -1,17 +1,24 @@
 'use client'
-import { Search, Bell, Sun, Moon, Command, Plus } from 'lucide-react'
+import { Search, Bell, Sun, Moon, Command, Plus, GraduationCap, Package, Users, Mail, FileText, Sparkles } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { ALL_NAV_ITEMS } from '@/lib/nav'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuGroup,
 } from '@/components/ui/dropdown-menu'
+import { toast } from 'sonner'
+import type { ModuleId } from '@/lib/nav'
 
 export function Topbar() {
-  const { setCommandOpen, theme, toggleTheme, activeModule } = useAppStore()
+  const { setCommandOpen, theme, toggleTheme, activeModule, setActiveModule } = useAppStore()
   const current = ALL_NAV_ITEMS.find((i) => i.id === activeModule)
+
+  const create = (label: string, target: ModuleId) => {
+    setActiveModule(target)
+    toast.success(`${label} dialog ready`, { description: `Switched to ${label.split(' ')[0]} — use the ${label.includes('Course') ? 'New Course' : label.includes('Product') ? 'Add Product' : 'Create'} button.` })
+  }
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/80 backdrop-blur-xl px-4 md:px-6">
@@ -22,7 +29,6 @@ export function Topbar() {
 
       <div className="flex-1" />
 
-      {/* Search trigger */}
       <button
         onClick={() => setCommandOpen(true)}
         className="group hidden sm:flex items-center gap-2 h-9 w-full max-w-[280px] rounded-lg border border-border bg-muted/40 px-3 text-sm text-muted-foreground hover:bg-muted transition"
@@ -38,17 +44,44 @@ export function Topbar() {
         <Search className="h-4 w-4" />
       </Button>
 
-      {/* New */}
-      <Button size="sm" className="hidden md:inline-flex h-9 shadow-sm">
-        <Plus className="h-4 w-4 mr-1" /> Create
-      </Button>
+      {/* Create dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" className="hidden md:inline-flex h-9 shadow-sm">
+            <Plus className="h-4 w-4 mr-1" /> Create
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>Create new</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => create('New Course', 'courses')}>
+              <GraduationCap className="h-4 w-4 mr-2" /> New Course
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => create('New Product', 'products')}>
+              <Package className="h-4 w-4 mr-2" /> Digital Product
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => create('New Post', 'community')}>
+              <Users className="h-4 w-4 mr-2" /> Community Post
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => create('New Campaign', 'email')}>
+              <Mail className="h-4 w-4 mr-2" /> Email Campaign
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => create('New Page', 'website')}>
+              <FileText className="h-4 w-4 mr-2" /> Landing Page
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setActiveModule('ai-studio')}>
+            <Sparkles className="h-4 w-4 mr-2 text-primary" /> Generate with AI
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      {/* Theme toggle */}
       <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
         {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </Button>
 
-      {/* Notifications */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="relative">
@@ -62,12 +95,12 @@ export function Topbar() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {[
-            { t: 'New sale: Pro Membership', d: '2 min ago', a: '$199.00' },
-            { t: 'Marcus Lee posted in Community', d: '12 min ago' },
-            { t: 'AI Course Generator finished', d: '1 hour ago' },
-            { t: 'Weekly analytics report ready', d: '3 hours ago' },
+            { t: 'New sale: Pro Membership', d: '2 min ago', a: '$199.00', action: () => { setActiveModule('crm'); toast.info('Opening CRM') } },
+            { t: 'Marcus Lee posted in Community', d: '12 min ago', action: () => { setActiveModule('community'); toast.info('Opening Community') } },
+            { t: 'AI Course Generator finished', d: '1 hour ago', action: () => { setActiveModule('ai-studio'); toast.info('Opening AI Studio') } },
+            { t: 'Weekly analytics report ready', d: '3 hours ago', action: () => { setActiveModule('analytics'); toast.info('Opening Analytics') } },
           ].map((n, i) => (
-            <DropdownMenuItem key={i} className="flex-col items-start gap-0.5 py-2.5">
+            <DropdownMenuItem key={i} className="flex-col items-start gap-0.5 py-2.5 cursor-pointer" onClick={n.action}>
               <div className="flex w-full items-center justify-between">
                 <span className="text-sm font-medium">{n.t}</span>
                 {n.a && <span className="text-xs font-semibold text-primary">{n.a}</span>}

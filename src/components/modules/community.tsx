@@ -41,12 +41,34 @@ export function CommunityModule() {
   const [newContent, setNewContent] = useState('')
   const [newCat, setNewCat] = useState('General')
   const [creating, setCreating] = useState(false)
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({})
+  const [extraComments, setExtraComments] = useState<Record<string, Comment[]>>({})
 
   const toggle = (set: Set<string>, setFn: (s: Set<string>) => void, id: string) => {
     const next = new Set(set)
     if (next.has(id)) next.delete(id)
     else next.add(id)
     setFn(next)
+  }
+
+  const submitComment = (postId: string) => {
+    const text = (commentInputs[postId] || '').trim()
+    if (!text) return
+    const comment: Comment = {
+      id: `local-${Date.now()}`,
+      content: text,
+      createdAt: new Date().toISOString(),
+      author: { name: 'Alex Rivera', initials: 'AR' },
+    }
+    setExtraComments((prev) => ({ ...prev, [postId]: [...(prev[postId] || []), comment] }))
+    setCommentInputs((prev) => ({ ...prev, [postId]: '' }))
+    toast.success('Comment posted')
+  }
+
+  const sharePost = (p: Post) => {
+    const url = `https://creatoros.io/c/${p.id}`
+    navigator.clipboard.writeText(url)
+    toast.success('Post link copied to clipboard', { description: url })
   }
 
   const createPost = async () => {
@@ -130,7 +152,9 @@ export function CommunityModule() {
               <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Post title" />
               <Textarea value={newContent} onChange={(e) => setNewContent(e.target.value)} placeholder="What's on your mind?" rows={5} />
               <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm">Save draft</Button>
+                <Button variant="outline" size="sm" onClick={() => { toast.success('Draft saved'); setNewTitle(''); setNewContent(''); }}>
+                  Save draft
+                </Button>
                 <Button size="sm" onClick={createPost} disabled={creating || !newTitle.trim() || !newContent.trim()}>
                   <Sparkles className="h-4 w-4 mr-1.5" /> Publish {creating && '...'}
                 </Button>
@@ -171,20 +195,22 @@ export function CommunityModule() {
                           </Button>
                           <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs"
                             onClick={() => toggle(expanded, setExpanded, p.id)}>
-                            <MessageCircle className="h-4 w-4" /> {p.comments.length}
+                            <MessageCircle className="h-4 w-4" /> {p.commentsCount + (extraComments[p.id]?.length || 0)}
                           </Button>
                           <Button variant="ghost" size="sm" className={cn('h-8 gap-1.5 text-xs', isSaved && 'text-primary')}
-                            onClick={() => toggle(saved, setSaved, p.id)}>
+                            onClick={() => { toggle(saved, setSaved, p.id); if (!saved.has(p.id)) toast.success('Saved to bookmarks') }}>
                             <Bookmark className={cn('h-4 w-4', isSaved && 'fill-current')} />
                           </Button>
-                          <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs"><Share2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => sharePost(p)}>
+                            <Share2 className="h-4 w-4" />
+                          </Button>
                         </div>
 
                         {/* Comments */}
                         <AnimatePresence>
-                          {isExpanded && p.comments.length > 0 && (
+                          {isExpanded && (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mt-3 space-y-2.5 overflow-hidden">
-                              {p.comments.map((c) => (
+                              {[...p.comments, ...(extraComments[p.id] || [])].map((c) => (
                                 <div key={c.id} className="flex gap-2.5">
                                   <Avatar className="h-7 w-7"><AvatarFallback className="bg-muted text-[10px]">{c.author.initials}</AvatarFallback></Avatar>
                                   <div className="flex-1 rounded-lg bg-muted/50 px-3 py-2">
@@ -199,8 +225,16 @@ export function CommunityModule() {
                               <div className="flex gap-2.5">
                                 <Avatar className="h-7 w-7"><AvatarFallback className="bg-primary/15 text-primary text-[10px]">AR</AvatarFallback></Avatar>
                                 <div className="flex-1 flex gap-2">
-                                  <Input placeholder="Write a comment..." className="h-8 text-xs" />
-                                  <Button size="icon" className="h-8 w-8 shrink-0"><Send className="h-3 w-3" /></Button>
+                                  <Input
+                                    placeholder="Write a comment..."
+                                    className="h-8 text-xs"
+                                    value={commentInputs[p.id] || ''}
+                                    onChange={(e) => setCommentInputs((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitComment(p.id) } }}
+                                  />
+                                  <Button size="icon" className="h-8 w-8 shrink-0" onClick={() => submitComment(p.id)} disabled={!(commentInputs[p.id] || '').trim()}>
+                                    <Send className="h-3 w-3" />
+                                  </Button>
                                 </div>
                               </div>
                             </motion.div>

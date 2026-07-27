@@ -26,6 +26,7 @@ model User {
   orders        Order[]
   aiConversations AiConversation[]
   creditTxns    CreditTransaction[]
+  aiGenerations AiGeneration[]
 }
 
 model Workspace {
@@ -269,3 +270,98 @@ model CreditTransaction {
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+// ===== AI Platform (database-driven, admin-managed) =====
+
+model AiProvider {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  apiKey      String   @default("")
+  baseUrl     String   @default("")
+  isActive    Boolean  @default(true)
+  priority    Int      @default(10)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  models      AiModel[]
+}
+
+model AiModel {
+  id           String   @id @default(cuid())
+  providerId   String
+  name         String   // internal id
+  displayName  String
+  contextWindow Int     @default(128000)
+  isDefault    Boolean  @default(false)
+  costMultiplier Float  @default(1.0)
+  isActive     Boolean  @default(true)
+
+  provider     AiProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+model AiTool {
+  id           String   @id @default(cuid())
+  slug         String   @unique // COURSE_GENERATOR | EMAIL_WRITER | ...
+  name         String
+  description  String
+  icon         String   @default("Sparkles")
+  category     String   @default("Content") // Content | Courses | Marketing | Sales | Strategy
+  systemPrompt String   @default("")
+  userInputPrompt String @default("") // template injected with user input
+  creditCost   Int      @default(5)
+  temperature  Float    @default(0.7)
+  maxTokens    Int      @default(4000)
+  outputType   String   @default("MARKDOWN") // MARKDOWN | COURSE | LESSON | EMAIL | SALES_PAGE | BLOG | SOCIAL | SCRIPT | PRODUCT | LANDING
+  isVisible    Boolean  @default(true)
+  isPro        Boolean  @default(false)
+  outputSchema String   @default("") // JSON schema hint for structured outputs
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  generations  AiGeneration[]
+}
+
+model AiGeneration {
+  id           String   @id @default(cuid())
+  userId       String
+  toolId       String
+  toolSlug     String
+  title        String
+  input        String   @default("") // user prompt
+  output       String   @default("") // raw AI text
+  structured   String   @default("{}") // JSON structured output (course obj, etc.)
+  status       String   @default("COMPLETED") // PENDING | COMPLETED | FAILED
+  creditsUsed  Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tool         AiTool   @relation(fields: [toolId], references: [id], onDelete: Cascade)
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String   @default("")
+  enabled     Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}
+
+model AdminSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @default("")
+  category    String   @default("general") // general | billing | ai | storage | email
+  updatedAt   DateTime @updatedAt
+}
+
+// ===== Website Builder blocks =====
+
+model WebPageBlock {
+  id          String   @id @default(cuid())
+  pageId      String
+  type        String   // HERO | HEADING | TEXT | FEATURES | PRICING | CTA | TESTIMONIALS | IMAGE | VIDEO | FAQ | FOOTER
+  content     String   @default("{}") // JSON content for the block
+  position    Int      @default(0)
+  updatedAt   DateTime @updatedAt
+}
+

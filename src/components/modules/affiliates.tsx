@@ -79,7 +79,7 @@ export function AffiliatesModule() {
           <CardContent className="p-0">
             <div className="flex items-center justify-between p-4 border-b">
               <p className="text-sm font-semibold">Top Affiliates</p>
-              <Button size="sm" variant="outline"><Plus className="h-3.5 w-3.5 mr-1" />Invite</Button>
+              <Button size="sm" variant="outline" onClick={() => toast.success('Invite link ready', { description: 'Share this link to recruit new affiliates.' })}><Plus className="h-3.5 w-3.5 mr-1" />Invite</Button>
             </div>
             <div className="max-h-[420px] overflow-y-auto scroll-thin">
               {data.affiliates.map((a, i) => (

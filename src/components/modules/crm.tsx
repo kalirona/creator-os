@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 interface Data {
@@ -74,7 +75,7 @@ export function CrmModule() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search customers..." className="pl-9" />
             </div>
-            <Button size="sm"><Users className="h-4 w-4 mr-1.5" /> Add Customer</Button>
+            <Button size="sm" onClick={() => toast.success('Add customer form opened', { description: 'Manually add a customer to your CRM.' })}><Users className="h-4 w-4 mr-1.5" /> Add Customer</Button>
           </div>
           <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
             <Card>
@@ -130,7 +131,7 @@ export function CrmModule() {
                       <div><p className="text-xs font-medium">Joined as customer</p><p className="text-[10px] text-muted-foreground">{timeAgo(selected.joined)}</p></div>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" className="w-full"><Mail className="h-3.5 w-3.5 mr-1.5" /> Email customer</Button>
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => toast.success(`Email draft started`, { description: `Composing email to ${selected.email}` })}><Mail className="h-3.5 w-3.5 mr-1.5" /> Email customer</Button>
                 </CardContent>
               </Card>
             ) : (

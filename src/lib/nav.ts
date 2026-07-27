@@ -1,13 +1,13 @@
 import {
   LayoutDashboard, GraduationCap, Users, ShoppingBag, Package,
   Mail, UserCircle, Link2, BarChart3, Sparkles, LifeBuoy, Settings,
-  CreditCard, Globe, type LucideIcon,
+  CreditCard, Globe, ShieldCheck, type LucideIcon,
 } from 'lucide-react'
 
 export type ModuleId =
   | 'dashboard' | 'courses' | 'community' | 'store' | 'products'
   | 'membership' | 'email' | 'crm' | 'affiliates' | 'analytics'
-  | 'ai-studio' | 'website' | 'support' | 'settings'
+  | 'ai-studio' | 'website' | 'support' | 'settings' | 'admin'
 
 export interface NavItem {
   id: ModuleId
@@ -51,6 +51,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     items: [
       { id: 'support', label: 'Support', icon: LifeBuoy, description: 'Tickets, help center, live chat' },
       { id: 'settings', label: 'Settings', icon: Settings, description: 'Workspace, team, billing, security' },
+      { id: 'admin', label: 'Super Admin', icon: ShieldCheck, description: 'Platform control center: AI, billing, feature flags', badge: 'Admin', accent: 'text-amber-500' },
     ],
   },
 ]
@@ -66,4 +67,5 @@ export const KEYBOARD_SHORTCUTS: { keys: string; label: string; moduleId?: Modul
   { keys: 'G O', label: 'Go to Community', moduleId: 'community' },
   { keys: 'G E', label: 'Go to Email', moduleId: 'email' },
   { keys: 'G S', label: 'Go to Settings', moduleId: 'settings' },
+  { keys: 'G X', label: 'Go to Super Admin', moduleId: 'admin' },
 ]

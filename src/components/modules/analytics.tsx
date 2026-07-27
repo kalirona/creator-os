@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from 'sonner'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { cn } from '@/lib/utils'
 
@@ -34,7 +35,7 @@ export function AnalyticsModule() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">Deep-dive performance across revenue, audience, and engagement.</p>
-        <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" /> Export report</Button>
+        <Button variant="outline" size="sm" onClick={() => toast.success('Report exporting', { description: 'Your analytics report (PDF) will download shortly.' })}><Download className="h-4 w-4 mr-1.5" /> Export report</Button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

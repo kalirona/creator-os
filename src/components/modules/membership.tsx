@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 interface Data {
@@ -36,7 +37,7 @@ export function MembershipModule() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">Recurring revenue plans and member tiers.</p>
-        <Button size="sm"><Plus className="h-4 w-4 mr-1.5" /> New Plan</Button>
+        <Button size="sm" onClick={() => toast.success('New plan builder opened', { description: 'Set up a new membership tier.' })}><Plus className="h-4 w-4 mr-1.5" /> New Plan</Button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -76,7 +77,7 @@ export function MembershipModule() {
                       <div key={f as string} className="flex items-center gap-2 text-xs"><Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" /><span className="text-muted-foreground">{f}</span></div>
                     ))}
                   </div>
-                  <Button className="mt-4 w-full" size="sm" variant={isPro ? 'default' : 'outline'}>Manage plan</Button>
+                  <Button className="mt-4 w-full" size="sm" variant={isPro ? 'default' : 'outline'} onClick={() => toast.info(`Managing "${p.name}" plan`, { description: 'Edit pricing, features, and benefits.' })}>Manage plan</Button>
                 </CardContent>
               </Card>
             </motion.div>

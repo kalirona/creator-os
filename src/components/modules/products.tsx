@@ -8,7 +8,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { CreateDialog } from '@/components/app/create-dialog'
 import { useAppStore } from '@/store/app-store'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 interface Product { id: string; name: string; description: string; type: string; price: number; compareAt: number | null; salesCount: number; rating: number; status: string; revenue: number }
@@ -25,6 +27,7 @@ export function ProductsModule() {
   const { data: products, loading } = useApi<Product[]>('/api/data/products')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('All')
+  const [createOpen, setCreateOpen] = useState(false)
   const setActiveModule = useAppStore((s) => s.setActiveModule)
 
   const filtered = (products || []).filter((p) =>
@@ -44,7 +47,7 @@ export function ProductsModule() {
           <Button variant="outline" size="sm" onClick={() => setActiveModule('ai-studio')}>
             <Sparkles className="h-4 w-4 mr-1.5 text-primary" /> AI Product Idea
           </Button>
-          <Button size="sm"><Plus className="h-4 w-4 mr-1.5" /> Add Product</Button>
+          <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1.5" /> Add Product</Button>
         </div>
       </div>
 
@@ -102,7 +105,7 @@ export function ProductsModule() {
                         <span className="text-sm font-bold text-primary">{formatCurrency(p.price)}</span>
                         {p.compareAt && <span className="text-xs text-muted-foreground line-through">{formatCurrency(p.compareAt)}</span>}
                       </div>
-                      <Button size="sm" variant="ghost" className="h-7 text-xs">Edit</Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); toast.info(`Editing "${p.name}"`, { description: 'Opening product editor...' }) }}>Edit</Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -111,6 +114,24 @@ export function ProductsModule() {
           })}
         </div>
       )}
+      <CreateDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        config={{
+          title: 'Add Digital Product',
+          description: 'Create a new product to sell in your store.',
+          aiHint: 'Use the AI Product Strategist to ideate and position your product.',
+          submitLabel: 'Add product',
+          fields: [
+            { name: 'name', label: 'Product name', type: 'text', placeholder: 'e.g. Notion Content Planner', required: true },
+            { name: 'description', label: 'Description', type: 'textarea', placeholder: 'What does this product do?' },
+            { name: 'type', label: 'Type', type: 'select', defaultValue: 'DIGITAL', options: [
+              { value: 'DIGITAL', label: 'Digital Download' }, { value: 'BUNDLE', label: 'Bundle' }, { value: 'MEMBERSHIP', label: 'Membership' }, { value: 'COURSE', label: 'Course' },
+            ] },
+            { name: 'price', label: 'Price (USD)', type: 'number', defaultValue: '29', placeholder: '29' },
+          ],
+        }}
+      />
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/store/app-store'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/hooks/use-api'
 
@@ -47,7 +48,7 @@ export function EmailModule() {
           <Button variant="outline" size="sm" onClick={() => setActiveModule('ai-studio')}>
             <Sparkles className="h-4 w-4 mr-1.5 text-primary" /> AI Email Writer
           </Button>
-          <Button size="sm"><Plus className="h-4 w-4 mr-1.5" /> New Campaign</Button>
+          <Button size="sm" onClick={() => toast.success('Campaign builder opened', { description: 'Draft your broadcast, automation, or sequence.' })}><Plus className="h-4 w-4 mr-1.5" /> New Campaign</Button>
         </div>
       </div>
 

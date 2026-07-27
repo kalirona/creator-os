@@ -18,6 +18,7 @@ import { AnalyticsModule } from '@/components/modules/analytics'
 import { WebsiteModule } from '@/components/modules/website'
 import { SupportModule } from '@/components/modules/support'
 import { SettingsModule } from '@/components/modules/settings'
+import { AdminModule } from '@/components/modules/admin'
 import type { ModuleId } from '@/lib/nav'
 
 const MODULES: Record<ModuleId, React.ComponentType> = {
@@ -35,6 +36,7 @@ const MODULES: Record<ModuleId, React.ComponentType> = {
   'website': WebsiteModule,
   'support': SupportModule,
   'settings': SettingsModule,
+  'admin': AdminModule,
 }
 
 export default function Home() {

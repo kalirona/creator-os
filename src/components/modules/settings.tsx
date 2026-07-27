@@ -47,7 +47,7 @@ export function SettingsModule() {
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16"><AvatarFallback className="bg-primary/15 text-primary text-lg">AR</AvatarFallback></Avatar>
-                <div><Button size="sm" variant="outline">Change avatar</Button><p className="text-xs text-muted-foreground mt-1.5">JPG, PNG or GIF. Max 2MB.</p></div>
+                <div><Button size="sm" variant="outline" onClick={() => toast.info('Upload avatar', { description: 'Choose an image file (JPG, PNG, GIF — max 2MB)' })}>Change avatar</Button><p className="text-xs text-muted-foreground mt-1.5">JPG, PNG or GIF. Max 2MB.</p></div>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div><Label>Full name</Label><Input defaultValue="Alex Rivera" className="mt-1.5" /></div>
@@ -84,14 +84,14 @@ export function SettingsModule() {
 
         <TabsContent value="team" className="space-y-4">
           <Card>
-            <CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">Team Members</CardTitle><Button size="sm">Invite member</Button></CardHeader>
+            <CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">Team Members</CardTitle><Button size="sm" onClick={() => toast.success('Invite sent', { description: 'Team invitation email will be sent.' })}>Invite member</Button></CardHeader>
             <CardContent className="space-y-1.5">
               {TEAM.map((m) => (
                 <div key={m.email} className="flex items-center gap-3 rounded-lg p-2.5 hover:bg-muted/50 transition">
                   <Avatar className="h-9 w-9"><AvatarFallback className={cn('text-xs font-medium', m.color)}>{m.initials}</AvatarFallback></Avatar>
                   <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{m.name}</p><p className="text-xs text-muted-foreground truncate">{m.email}</p></div>
                   <Select defaultValue={m.role}><SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger><SelectContent>{['Owner', 'Admin', 'Manager', 'Instructor', 'Moderator', 'Member'].map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent></Select>
-                  {m.role !== 'Owner' && <Button size="sm" variant="ghost" className="h-8 text-xs text-rose-500">Remove</Button>}
+                  {m.role !== 'Owner' && <Button size="sm" variant="ghost" className="h-8 text-xs text-rose-500" onClick={() => toast.success(`${m.name} removed from workspace`)}>Remove</Button>}
                 </div>
               ))}
             </CardContent>
@@ -103,7 +103,7 @@ export function SettingsModule() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2"><Crown className="h-5 w-5 text-primary" /><p className="font-semibold">Scale Plan</p><Badge variant="secondary" className="bg-primary/15 text-primary">Current</Badge></div>
-                <Button size="sm" variant="outline">Change plan</Button>
+                <Button size="sm" variant="outline" onClick={() => toast.info('Plan comparison', { description: 'Compare Free, Pro, Scale, and Enterprise plans.' })}>Change plan</Button>
               </div>
               <div className="grid sm:grid-cols-3 gap-3">
                 {[{ l: 'Monthly price', v: '$199/mo' }, { l: 'Next billing', v: 'Dec 15, 2025' }, { l: 'AI Credits', v: '4,280 remaining' }].map((x) => (
@@ -117,7 +117,7 @@ export function SettingsModule() {
             <CardContent>
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div className="flex items-center gap-3"><div className="flex h-8 w-12 items-center justify-center rounded bg-gradient-to-br from-slate-700 to-slate-900 text-[10px] text-white font-bold">VISA</div><div><p className="text-sm font-medium">•••• •••• •••• 4242</p><p className="text-xs text-muted-foreground">Expires 08/27</p></div></div>
-                <Button size="sm" variant="outline">Update</Button>
+                <Button size="sm" variant="outline" onClick={() => toast.info('Update payment method', { description: 'Add a new card or change your default.' })}>Update</Button>
               </div>
             </CardContent>
           </Card>
@@ -133,7 +133,7 @@ export function SettingsModule() {
               </div>
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div className="flex items-center gap-3"><Shield className="h-4 w-4 text-muted-foreground" /><div><p className="text-sm font-medium">Password</p><p className="text-xs text-muted-foreground">Last changed 3 months ago</p></div></div>
-                <Button size="sm" variant="outline">Change</Button>
+                <Button size="sm" variant="outline" onClick={() => toast.info('Change password', { description: 'A secure reset link will be emailed to you.' })}>Change</Button>
               </div>
               <div>
                 <p className="text-sm font-semibold mb-2">Active sessions</p>
@@ -141,7 +141,7 @@ export function SettingsModule() {
                   {[{ d: 'MacBook Pro · Manila', t: 'Current session', active: true }, { d: 'iPhone 15 · Manila', t: '2 hours ago', active: false }].map((s) => (
                     <div key={s.d} className="flex items-center justify-between rounded-lg border p-3">
                       <div><p className="text-sm font-medium">{s.d}</p><p className="text-xs text-muted-foreground">{s.t}</p></div>
-                      {s.active ? <Badge variant="secondary" className="text-emerald-600 bg-emerald-500/10">Active</Badge> : <Button size="sm" variant="ghost" className="h-7 text-xs text-rose-500">Revoke</Button>}
+                      {s.active ? <Badge variant="secondary" className="text-emerald-600 bg-emerald-500/10">Active</Badge> : <Button size="sm" variant="ghost" className="h-7 text-xs text-rose-500" onClick={() => toast.success('Session revoked')}>Revoke</Button>}
                     </div>
                   ))}
                 </div>

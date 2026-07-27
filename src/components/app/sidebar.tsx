@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronLeft, Sparkles, Plus, Crown } from 'lucide-react'
 import { NAV_GROUPS } from '@/lib/nav'
@@ -7,9 +8,12 @@ import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { BuyCreditsDialog } from '@/components/app/buy-credits-dialog'
 
 export function Sidebar() {
   const { activeModule, setActiveModule, sidebarCollapsed, toggleSidebar } = useAppStore()
+  const [credits, setCredits] = useState(4280)
+  const [buyOpen, setBuyOpen] = useState(false)
 
   return (
     <aside
@@ -98,14 +102,19 @@ export function Sidebar() {
               <Crown className="h-4 w-4 text-primary" />
               <span className="text-xs font-semibold">AI Credits</span>
             </div>
-            <p className="text-lg font-bold tabular-nums">4,280</p>
+            <p className="text-lg font-bold tabular-nums">{credits.toLocaleString()}</p>
             <div className="mt-2 h-1.5 w-full rounded-full bg-primary/10 overflow-hidden">
-              <div className="h-full w-[68%] rounded-full bg-gradient-to-r from-primary to-primary/60" />
+              <div className="h-full rounded-full bg-gradient-to-r from-primary to-primary/60" style={{ width: `${Math.min(100, (credits / 6280) * 100)}%` }} />
             </div>
-            <Button size="sm" className="mt-2.5 w-full h-7 text-xs">
+            <Button size="sm" className="mt-2.5 w-full h-7 text-xs" onClick={() => setBuyOpen(true)}>
               <Plus className="h-3 w-3 mr-1" /> Buy credits
             </Button>
           </div>
+        )}
+        {sidebarCollapsed && (
+          <Button size="icon" variant="ghost" className="w-full h-9" onClick={() => setBuyOpen(true)} title="Buy credits">
+            <Crown className="h-4 w-4 text-primary" />
+          </Button>
         )}
         <button
           onClick={() => setActiveModule('settings')}
@@ -125,6 +134,7 @@ export function Sidebar() {
           )}
         </button>
       </div>
+      <BuyCreditsDialog open={buyOpen} onOpenChange={setBuyOpen} currentCredits={credits} onPurchase={(c) => setCredits((prev) => prev + c)} />
     </aside>
   )
 }
