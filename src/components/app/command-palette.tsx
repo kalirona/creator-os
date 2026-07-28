@@ -38,7 +38,7 @@ export function CommandPalette() {
         const map: Record<string, ModuleId> = {
           d: 'dashboard', a: 'ai-studio', c: 'courses', p: 'products',
           o: 'community', e: 'email', s: 'settings', m: 'membership',
-          r: 'crm', f: 'affiliates', w: 'website', l: 'analytics', x: 'admin',
+          r: 'crm', f: 'pages-funnels', l: 'analytics', x: 'admin',
         }
         const target = map[e.key.toLowerCase()]
         if (target) {

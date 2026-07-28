@@ -7,7 +7,7 @@ import {
 export type ModuleId =
   | 'dashboard' | 'courses' | 'community' | 'store' | 'products'
   | 'membership' | 'email' | 'crm' | 'affiliates' | 'analytics'
-  | 'ai-studio' | 'website' | 'support' | 'settings' | 'admin'
+  | 'ai-studio' | 'pages-funnels' | 'support' | 'settings' | 'admin'
 
 export interface NavItem {
   id: ModuleId
@@ -34,7 +34,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { id: 'products', label: 'Digital Products', icon: Package, description: 'Sell templates, downloads, and bundles' },
       { id: 'store', label: 'Store', icon: ShoppingBag, description: 'Checkout, coupons, refunds, invoices' },
       { id: 'membership', label: 'Membership', icon: CreditCard, description: 'Recurring revenue plans and tiers' },
-      { id: 'website', label: 'Website Builder', icon: Globe, description: 'Landing pages, sales pages, blog' },
+      { id: 'pages-funnels', label: 'Pages & Funnels', icon: Globe, description: 'Pages, landing pages, funnels, blog, SEO' },
     ],
   },
   {
@@ -67,5 +67,6 @@ export const KEYBOARD_SHORTCUTS: { keys: string; label: string; moduleId?: Modul
   { keys: 'G O', label: 'Go to Community', moduleId: 'community' },
   { keys: 'G E', label: 'Go to Email', moduleId: 'email' },
   { keys: 'G S', label: 'Go to Settings', moduleId: 'settings' },
+  { keys: 'G F', label: 'Go to Pages & Funnels', moduleId: 'pages-funnels' },
   { keys: 'G X', label: 'Go to Super Admin', moduleId: 'admin' },
 ]

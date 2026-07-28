@@ -354,14 +354,111 @@ model AdminSetting {
   updatedAt   DateTime @updatedAt
 }
 
-// ===== Website Builder blocks =====
+// ===== Pages & Funnels system =====
 
-model WebPageBlock {
+model Page {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  title        String
+  slug         String
+  type         String   @default("PAGE") // PAGE | LANDING | FUNNEL_STEP | BLOG | HOME | ABOUT | CONTACT | LEGAL | THANK_YOU
+  status       String   @default("DRAFT") // DRAFT | PUBLISHED | SCHEDULED
+  category     String   @default("General") // for landing pages: Course | Membership | Product | Community | Agency | SaaS | LeadMagnet | Newsletter | Webinar | Coaching
+  funnelId     String?
+  seoTitle     String   @default("")
+  seoDescription String @default("")
+  ogImage      String   @default("")
+  schema       String   @default("{}")
+  visits       Int      @default(0)
+  conversions  Int      @default(0)
+  publishedAt  DateTime?
+  scheduledAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sections     PageSection[]
+  versions     PageVersion[]
+  funnelSteps  FunnelStep[]
+}
+
+model PageSection {
   id          String   @id @default(cuid())
   pageId      String
-  type        String   // HERO | HEADING | TEXT | FEATURES | PRICING | CTA | TESTIMONIALS | IMAGE | VIDEO | FAQ | FOOTER
-  content     String   @default("{}") // JSON content for the block
+  type        String   // HERO | FEATURES | BENEFITS | PRICING | TESTIMONIALS | FAQ | VIDEO | GALLERY | COUNTDOWN | CTA | NEWSLETTER | FOOTER | TEXT | HEADING
+  content     String   @default("{}") // JSON content
   position    Int      @default(0)
+  isHidden    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  page        Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+}
+
+model PageVersion {
+  id          String   @id @default(cuid())
+  pageId      String
+  version     Int
+  sections    String   @default("[]") // JSON snapshot of sections
+  note        String   @default("")
+  createdAt   DateTime @default(now())
+
+  page        Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+}
+
+model Funnel {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  name         String
+  description  String   @default("")
+  type         String   @default("SALES") // SALES | LEAD | WEBINAR | LAUNCH
+  status       String   @default("DRAFT") // DRAFT | LIVE | PAUSED
+  visits       Int      @default(0)
+  conversions  Int      @default(0)
+  revenue      Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  steps        FunnelStep[]
+}
+
+model FunnelStep {
+  id          String   @id @default(cuid())
+  funnelId    String
+  pageId      String?
+  name        String
+  type        String   // LANDING | CHECKOUT | UPSELL | DOWNSELL | THANK_YOU | EMAIL | COMMUNITY_INVITE | COURSE_ACCESS
+  position    Int      @default(0)
+  isRequired  Boolean  @default(true)
+
+  funnel      Funnel   @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  page        Page?    @relation(fields: [pageId], references: [id], onDelete: SetNull)
+}
+
+model BlogPost {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  title        String
+  slug         String
+  excerpt      String   @default("")
+  content      String   @default("")
+  coverUrl     String   @default("")
+  category     String   @default("General")
+  tags         String   @default("")
+  author       String   @default("Alex Rivera")
+  status       String   @default("DRAFT") // DRAFT | PUBLISHED | SCHEDULED
+  seoTitle     String   @default("")
+  seoDescription String @default("")
+  visits       Int      @default(0)
+  publishedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model SiteSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @default("")
+  category    String   @default("brand") // brand | header | footer | analytics | seo | domains
   updatedAt   DateTime @updatedAt
 }
 

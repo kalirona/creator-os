@@ -96,3 +96,56 @@ Stage Summary:
 - Super Admin Control Center: full platform management without code
 - Every action persists to database (verified: courses, blocks, feature flags)
 - No AI model names in UI — Smart AI routing managed exclusively from admin
+
+---
+Task ID: 4 (Pages & Funnels redesign)
+Agent: main (Z.ai Code)
+Task: Completely remove Website Builder, build professional Pages & Funnels system with section-based editor (no drag-drop, no canvas)
+
+Work Log:
+- Removed old Website Builder module (website.tsx) and all related APIs (website, page, store routes)
+- Added 7 new Prisma models: Page, PageSection (ordered + hidden), PageVersion (history), Funnel, FunnelStep, BlogPost, SiteSetting
+- Updated nav: removed 'website', added 'pages-funnels' (Globe icon); updated command palette G-key map (G F = pages-funnels); updated Topbar Create dropdown
+- Seeded: 11 pages (Home, About, Contact, Privacy, Terms, Thank You + 5 landing pages), 52 sections, 1 funnel with 8 steps, 4 blog posts, 20 site settings
+- Built APIs:
+  * /api/data/pages (GET list + POST create)
+  * /api/data/page-sections (GET, POST add, PUT update/duplicate/moveUp/moveDown/hide, DELETE)
+  * /api/data/funnels (GET with steps)
+  * /api/data/blog (GET)
+  * /api/data/site-settings (GET + PUT)
+  * /api/ai/landing-page (POST — generates full landing page: Hero, Benefits, Features, Testimonials, Pricing, FAQ, CTA + SEO, saves to DB as Page + PageSections)
+  * /api/ai/section-rewrite (POST — REWRITE/IMPROVE/SHORTEN/EXPAND/TRANSLATE/SEO actions)
+- Built Pages & Funnels module with 8 sub-tabs: Pages, Landing Pages, Funnels, Navigation, Blog, Domains, SEO, Site Settings
+- Built section-based page editor (NO canvas, NO drag-drop):
+  * Vertical ordered section list (numbered)
+  * Each section: icon, name, preview text, actions (Move Up, Move Down, Duplicate, Hide/Show, Delete)
+  * AI actions per section: Rewrite, Improve, Shorten, Expand, Translate
+  * Right-side settings panel (opens on section click) with type-specific fields
+  * Add Section panel with 14 section types (Hero, Heading, Text, Benefits, Features, Pricing, Testimonials, FAQ, Video, Gallery, Countdown, CTA, Newsletter, Footer)
+  * SEO summary card, Publish/Preview buttons
+- Built AI Landing Page Generator: "What are you selling?" input + category selector → generates 7-section landing page → saves to DB → opens in editor
+- Built Funnels panel: visualizes funnel steps horizontally (Landing→Checkout→Upsell→Downsell→Thank You→Email→Community Invite→Course Access) with icons, types, connection arrows, stats
+- Built Blog panel: post list with category/tags/status/visits
+- Built Navigation panel: header menu items + announcement bar toggle
+- Built Domains panel: primary domain status, custom domain connection, redirects, subdomains
+- Built SEO panel: global meta title/description, Twitter cards, robots, sitemap/robots.txt status, AI SEO optimization
+- Built Site Settings panel: brand (name, color, font), announcement bar, analytics (GA, Meta Pixel, custom scripts)
+- Verified with Agent Browser:
+  * Pages tab: 6 pages listed (Homepage, About, Contact, Privacy, Terms, Thank You) with Edit buttons
+  * Section editor: opened page, saw ordered sections with all actions (Move up, Rewrite, Improve), right-side settings panel shows fields (Emoji, Headline, Subheadline, CTA)
+  * AI Landing Page Generator: generated "AI course for entrepreneurs" → created 7 sections (Hero "Unlock Explosive Business Growth with AI", Benefits, Features, Pricing, FAQ, CTA) → persisted to DB (landing pages 5→6, sections 52→59)
+  * AI Rewrite: clicked Rewrite on Hero section → headline changed from "Transform Your Business with AI" to "Unlock Explosive Business Growth with AI" (AI rewrote it)
+  * Funnels tab: full 8-step funnel visualized with all step types
+  * Blog tab: 4 seeded posts shown
+  * Domains tab: primary domain + custom domain connection form
+  * Site Settings tab: brand, announcement bar, analytics sections
+
+Stage Summary:
+- Website Builder completely removed; replaced with Pages & Funnels system
+- Section-based editor (no drag-drop, no canvas) — sections are ordered list with right-side settings panel
+- AI Landing Page Generator fully functional (generates complete landing page + SEO, persists to DB)
+- AI section actions functional (Rewrite/Improve/Shorten/Expand/Translate)
+- Funnels visualized as connected step sequences
+- 8 sub-tabs all working: Pages, Landing Pages, Funnels, Navigation, Blog, Domains, SEO, Site Settings
+- All data persists to database (Page, PageSection, Funnel, FunnelStep, BlogPost, SiteSetting)
+- Experience feels like Notion + Kajabi — fast, minimal clicks, built to sell

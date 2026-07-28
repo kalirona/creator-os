@@ -67,7 +67,7 @@ export function Topbar() {
             <DropdownMenuItem onClick={() => create('New Campaign', 'email')}>
               <Mail className="h-4 w-4 mr-2" /> Email Campaign
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => create('New Page', 'website')}>
+            <DropdownMenuItem onClick={() => create('New Page', 'pages-funnels')}>
               <FileText className="h-4 w-4 mr-2" /> Landing Page
             </DropdownMenuItem>
           </DropdownMenuGroup>

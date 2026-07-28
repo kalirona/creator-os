@@ -15,7 +15,7 @@ import { EmailModule } from '@/components/modules/email'
 import { CrmModule } from '@/components/modules/crm'
 import { AffiliatesModule } from '@/components/modules/affiliates'
 import { AnalyticsModule } from '@/components/modules/analytics'
-import { WebsiteModule } from '@/components/modules/website'
+import { PagesFunnelsModule } from '@/components/modules/pages-funnels'
 import { SupportModule } from '@/components/modules/support'
 import { SettingsModule } from '@/components/modules/settings'
 import { AdminModule } from '@/components/modules/admin'
@@ -33,7 +33,7 @@ const MODULES: Record<ModuleId, React.ComponentType> = {
   'crm': CrmModule,
   'affiliates': AffiliatesModule,
   'analytics': AnalyticsModule,
-  'website': WebsiteModule,
+  'pages-funnels': PagesFunnelsModule,
   'support': SupportModule,
   'settings': SettingsModule,
   'admin': AdminModule,

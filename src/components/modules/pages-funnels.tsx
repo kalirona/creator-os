@@ -1,0 +1,706 @@
+'use client'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Globe, FileText, Rocket, Menu, BookOpen, Server, Search as SearchIcon, Settings2,
+  Plus, Eye, EyeOff, Copy, ArrowUp, ArrowDown, Trash2, Pencil, Sparkles, Languages,
+  Loader2, ArrowLeft, Save, Check, Zap, ExternalLink, Megaphone, Star, ShoppingCart,
+  HelpCircle, Type, Mail, Clock, Image as ImageIcon, Video, Layout, ChevronRight,
+  TrendingUp, Users, DollarSign, FileCode, Wand2, Send, GripVertical,
+} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { toast } from 'sonner'
+import { useApi, formatNumber, timeAgo } from '@/hooks/use-api'
+import { cn } from '@/lib/utils'
+import { useAppStore } from '@/store/app-store'
+
+type SubTab = 'pages' | 'landing' | 'funnels' | 'navigation' | 'blog' | 'domains' | 'seo' | 'settings'
+
+export function PagesFunnelsModule() {
+  const [tab, setTab] = useState<SubTab>('pages')
+  const [editingPage, setEditingPage] = useState<{ id: string; title: string; slug: string } | null>(null)
+  const [generating, setGenerating] = useState(false)
+
+  if (editingPage) {
+    return <PageEditor page={editingPage} onBack={() => setEditingPage(null)} />
+  }
+  if (generating) {
+    return <LandingGenerator onDone={(p) => { setGenerating(false); if (p) setEditingPage(p) }} onCancel={() => setGenerating(false)} />
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">Launch pages, landing pages, and sales funnels — built to sell, not to design.</p>
+        <Button size="sm" onClick={() => setGenerating(true)}><Sparkles className="h-4 w-4 mr-1.5 text-primary" /> AI Landing Page</Button>
+      </div>
+
+      <Tabs value={tab} onValueChange={(v) => setTab(v as SubTab)}>
+        <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="pages"><FileText className="h-3.5 w-3.5 mr-1.5" />Pages</TabsTrigger>
+          <TabsTrigger value="landing"><Rocket className="h-3.5 w-3.5 mr-1.5" />Landing Pages</TabsTrigger>
+          <TabsTrigger value="funnels"><Megaphone className="h-3.5 w-3.5 mr-1.5" />Funnels</TabsTrigger>
+          <TabsTrigger value="navigation"><Menu className="h-3.5 w-3.5 mr-1.5" />Navigation</TabsTrigger>
+          <TabsTrigger value="blog"><BookOpen className="h-3.5 w-3.5 mr-1.5" />Blog</TabsTrigger>
+          <TabsTrigger value="domains"><Server className="h-3.5 w-3.5 mr-1.5" />Domains</TabsTrigger>
+          <TabsTrigger value="seo"><SearchIcon className="h-3.5 w-3.5 mr-1.5" />SEO</TabsTrigger>
+          <TabsTrigger value="settings"><Settings2 className="h-3.5 w-3.5 mr-1.5" />Site Settings</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pages"><PagesList type="PAGE" onEdit={(p) => setEditingPage(p)} /></TabsContent>
+        <TabsContent value="landing"><PagesList type="LANDING" onEdit={(p) => setEditingPage(p)} onGenerate={() => setGenerating(true)} /></TabsContent>
+        <TabsContent value="funnels"><FunnelsPanel /></TabsContent>
+        <TabsContent value="navigation"><NavigationPanel /></TabsContent>
+        <TabsContent value="blog"><BlogPanel /></TabsContent>
+        <TabsContent value="domains"><DomainsPanel /></TabsContent>
+        <TabsContent value="seo"><SeoPanel /></TabsContent>
+        <TabsContent value="settings"><SiteSettingsPanel /></TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+
+// ===== Pages list (shared for Pages + Landing Pages) =====
+interface PageRow { id: string; title: string; slug: string; type: string; status: string; category: string; visits: number; conversions: number; sectionCount: number; publishedAt: string; updatedAt: string }
+
+function PagesList({ type, onEdit, onGenerate }: { type: string; onEdit: (p: { id: string; title: string; slug: string }) => void; onGenerate?: () => void }) {
+  // Fetch all pages, filter client-side (PAGE = everything except LANDING; LANDING = only landing)
+  const { data: allData, loading, refetch } = useApi<{ pages: PageRow[]; stats: { total: number; published: number; drafts: number; totalVisits: number } }>(`/api/data/pages`)
+  const isLanding = type === 'LANDING'
+  const data = allData ? {
+    ...allData,
+    pages: allData.pages.filter((p) => isLanding ? p.type === 'LANDING' : p.type !== 'LANDING'),
+    stats: {
+      total: allData.pages.filter((p) => isLanding ? p.type === 'LANDING' : p.type !== 'LANDING').length,
+      published: allData.pages.filter((p) => (isLanding ? p.type === 'LANDING' : p.type !== 'LANDING') && p.status === 'PUBLISHED').length,
+      drafts: allData.pages.filter((p) => (isLanding ? p.type === 'LANDING' : p.type !== 'LANDING') && p.status === 'DRAFT').length,
+      totalVisits: allData.pages.filter((p) => isLanding ? p.type === 'LANDING' : p.type !== 'LANDING').reduce((s, p) => s + p.visits, 0),
+    },
+  } : null
+  const [creating, setCreating] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newSlug, setNewSlug] = useState('')
+
+  const create = async () => {
+    if (!newTitle.trim() || !newSlug.trim()) return
+    try {
+      const res = await fetch('/api/data/pages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newTitle, slug: newSlug, type, category: type === 'LANDING' ? 'Course' : 'General' }) })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error)
+      toast.success('Page created')
+      setCreating(false); setNewTitle(''); setNewSlug('')
+      refetch()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') }
+  }
+
+  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+
+  const STATUS_CLS: Record<string, string> = { PUBLISHED: 'bg-emerald-500/10 text-emerald-600', DRAFT: 'bg-amber-500/10 text-amber-600', SCHEDULED: 'bg-sky-500/10 text-sky-600' }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { l: 'Total Pages', v: data.stats.total, i: FileText },
+          { l: 'Published', v: data.stats.published, i: Check },
+          { l: 'Drafts', v: data.stats.drafts, i: Pencil },
+          { l: 'Total Visits', v: formatNumber(data.stats.totalVisits, true), i: Eye },
+        ].map((s) => { const Icon = s.i; return (
+          <Card key={s.l}><CardContent className="p-4 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
+            <div><p className="text-lg font-bold tabular-nums leading-none">{s.v}</p><p className="text-[11px] text-muted-foreground mt-1">{s.l}</p></div>
+          </CardContent></Card>
+        )})}
+      </div>
+
+      {isLanding && (
+        <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card">
+          <CardContent className="p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/30"><Sparkles className="h-6 w-6 text-primary-foreground" /></div>
+              <div><p className="font-semibold">Generate a landing page with AI</p><p className="text-xs text-muted-foreground">Tell us what you're selling. We'll generate the headline, benefits, features, pricing, testimonials, FAQ, CTA, and SEO — automatically.</p></div>
+            </div>
+            <Button onClick={onGenerate}><Wand2 className="h-4 w-4 mr-1.5" />Generate</Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">{isLanding ? 'Your Landing Pages' : 'Your Pages'}</h3>
+        <Button size="sm" variant="outline" onClick={() => setCreating(true)}><Plus className="h-4 w-4 mr-1.5" />{isLanding ? 'Blank Landing' : 'New Page'}</Button>
+      </div>
+
+      <Card><CardContent className="p-0">
+        {data.pages.length === 0 ? (
+          <div className="p-12 text-center"><FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" /><p className="text-sm font-medium">No {isLanding ? 'landing pages' : 'pages'} yet</p><p className="text-xs text-muted-foreground mt-1">{isLanding ? 'Generate one with AI or create a blank one.' : 'Create your first page to get started.'}</p></div>
+        ) : data.pages.map((p, i) => (
+          <motion.div key={p.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
+            className="group flex items-center gap-3 p-3 border-b last:border-0 hover:bg-muted/50 transition">
+            <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', isLanding ? 'bg-violet-500/10 text-violet-600' : 'bg-sky-500/10 text-sky-600')}>
+              {isLanding ? <Rocket className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2"><p className="text-sm font-medium truncate">{p.title}</p><Badge variant="secondary" className="text-[10px]">{p.sectionCount} sections</Badge>{isLanding && p.category !== 'General' && <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary">{p.category}</Badge>}</div>
+              <p className="text-xs text-muted-foreground truncate">creatoros.io/{p.slug}</p>
+            </div>
+            <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground">
+              <div className="text-right"><p className="font-medium text-foreground tabular-nums">{formatNumber(p.visits, true)}</p><p>visits</p></div>
+              <div className="text-right"><p className="font-medium text-foreground tabular-nums">{p.conversions}</p><p>conv.</p></div>
+            </div>
+            <Badge variant="secondary" className={cn('text-[10px]', STATUS_CLS[p.status])}>{p.status}</Badge>
+            <Button size="sm" onClick={() => onEdit({ id: p.id, title: p.title, slug: p.slug })}>Edit</Button>
+          </motion.div>
+        ))}
+      </CardContent></Card>
+
+      <Dialog open={creating} onOpenChange={setCreating}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>New {isLanding ? 'Landing Page' : 'Page'}</DialogTitle><DialogDescription>Create a blank page. You can add sections in the editor.</DialogDescription></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Page title</Label><Input className="mt-1.5" value={newTitle} onChange={(e) => { setNewTitle(e.target.value); setNewSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')) }} placeholder="e.g. About Us" /></div>
+            <div><Label>URL slug</Label><Input className="mt-1.5 font-mono text-sm" value={newSlug} onChange={(e) => setNewSlug(e.target.value)} placeholder="about-us" /></div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setCreating(false)}>Cancel</Button><Button onClick={create}>Create page</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+// ===== AI Landing Page Generator =====
+function LandingGenerator({ onDone, onCancel }: { onDone: (p: { id: string; title: string; slug: string } | null) => void; onCancel: () => void }) {
+  const [selling, setSelling] = useState('')
+  const [category, setCategory] = useState('Course')
+  const [loading, setLoading] = useState(false)
+  const CATEGORIES = ['Course', 'Membership', 'Product', 'Community', 'Agency', 'SaaS', 'LeadMagnet', 'Newsletter', 'Webinar', 'Coaching']
+  const EXAMPLES = ['An SEO course for beginners', 'AI course teaching ChatGPT for business', 'Canva templates for Instagram', 'A prompt pack for marketers', 'A paid community for YouTubers', 'Monthly membership for coaches', '1-on-1 coaching for freelancers', 'Agency services for local businesses']
+
+  const generate = async () => {
+    if (!selling.trim()) return
+    setLoading(true)
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 55000)
+      const res = await fetch('/api/ai/landing-page', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ selling, category }), signal: controller.signal })
+      clearTimeout(timeout)
+      const raw = await res.text()
+      if (!res.ok) { let m = 'Failed'; try { const j = JSON.parse(raw); m = j.error } catch { } toast.error(m); setLoading(false); return }
+      const data = JSON.parse(raw)
+      toast.success(`Landing page generated! -${data.creditsUsed} credits`, { description: '7 sections added. Edit and publish when ready.' })
+      onDone({ id: data.pageId, title: selling.slice(0, 60), slug: data.pageSlug })
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); setLoading(false) }
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-4">
+      <button onClick={onCancel} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition"><ArrowLeft className="h-4 w-4" /> Back</button>
+      <Card className="overflow-hidden">
+        <div className="flex items-center gap-3 border-b p-5 bg-gradient-to-br from-primary/10 to-card">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/30"><Sparkles className="h-6 w-6 text-primary-foreground" /></div>
+          <div><h2 className="font-bold">AI Landing Page Generator</h2><p className="text-xs text-muted-foreground">Tell us what you're selling. We'll build a complete, high-converting landing page.</p></div>
+        </div>
+        <CardContent className="p-5 space-y-4">
+          <div>
+            <Label>What are you selling?</Label>
+            <Textarea className="mt-1.5" rows={3} value={selling} onChange={(e) => setSelling(e.target.value)} placeholder="e.g. An SEO course for beginners who want to rank on Google" disabled={loading} />
+          </div>
+          <div>
+            <Label>Category</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Try an example:</p>
+            <div className="flex flex-wrap gap-1.5">{EXAMPLES.map((ex) => <button key={ex} onClick={() => setSelling(ex)} disabled={loading} className="rounded-full border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50">{ex}</button>)}</div>
+          </div>
+          {loading && (
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <div className="flex items-center gap-3 mb-3"><Loader2 className="h-5 w-5 animate-spin text-primary" /><div><p className="text-sm font-medium">Generating your landing page...</p><p className="text-xs text-muted-foreground">Building headline, benefits, features, pricing, testimonials, FAQ, CTA, and SEO.</p></div></div>
+              <div className="space-y-1.5">{['Writing headline & hero', 'Crafting benefits & features', 'Generating pricing & testimonials', 'Building FAQ & CTA', 'Optimizing SEO'].map((s, i) => (
+                <motion.div key={s} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.8 }} className="flex items-center gap-2 text-xs text-muted-foreground"><Check className="h-3 w-3 text-emerald-500" />{s}</motion.div>
+              ))}</div>
+            </div>
+          )}
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-xs text-muted-foreground">7 credits · ~20 seconds</p>
+            <Button onClick={generate} disabled={loading || !selling.trim()}><Sparkles className="h-4 w-4 mr-1.5" />{loading ? 'Generating...' : 'Generate landing page'}</Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ===== Section-based Page Editor (no canvas, no drag-drop) =====
+interface Section { id: string; pageId: string; type: string; content: Record<string, unknown>; position: number; isHidden: boolean }
+interface FullPage { id: string; title: string; slug: string; type: string; status: string; category: string; seoTitle: string; seoDescription: string; visits: number; conversions: number; sections: Section[] }
+
+const SECTION_TYPES = [
+  { type: 'HERO', name: 'Hero', icon: Megaphone, desc: 'Headline + CTA' },
+  { type: 'HEADING', name: 'Heading', icon: Type, desc: 'Section title' },
+  { type: 'TEXT', name: 'Text', icon: FileText, desc: 'Paragraph' },
+  { type: 'BENEFITS', name: 'Benefits', icon: Star, desc: 'Outcome benefits' },
+  { type: 'FEATURES', name: 'Features', icon: Layout, desc: 'Feature grid' },
+  { type: 'PRICING', name: 'Pricing', icon: ShoppingCart, desc: 'Pricing tiers' },
+  { type: 'TESTIMONIALS', name: 'Testimonials', icon: Star, desc: 'Social proof' },
+  { type: 'FAQ', name: 'FAQ', icon: HelpCircle, desc: 'Q&A' },
+  { type: 'VIDEO', name: 'Video', icon: Video, desc: 'Embed video' },
+  { type: 'GALLERY', name: 'Gallery', icon: ImageIcon, desc: 'Image gallery' },
+  { type: 'COUNTDOWN', name: 'Countdown', icon: Clock, desc: 'Timer' },
+  { type: 'CTA', name: 'Call to Action', icon: Megaphone, desc: 'Conversion CTA' },
+  { type: 'NEWSLETTER', name: 'Newsletter', icon: Mail, desc: 'Email capture' },
+  { type: 'FOOTER', name: 'Footer', icon: Layout, desc: 'Page footer' },
+]
+
+function PageEditor({ page, onBack }: { page: { id: string; title: string; slug: string }; onBack: () => void }) {
+  const { data, loading, refetch } = useApi<{ page: FullPage }>(`/api/data/page-sections?pageId=${page.id}`)
+  const [selectedSection, setSelectedSection] = useState<Section | null>(null)
+  const [showAddPanel, setShowAddPanel] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const pageData = data?.page
+
+  const callApi = async (url: string, method: string, body?: unknown) => {
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
+    const raw = await res.text()
+    if (!res.ok) { let m = 'Failed'; try { const j = JSON.parse(raw); m = j.error } catch { } throw new Error(m) }
+    try { return JSON.parse(raw) } catch { return {} }
+  }
+
+  const addSection = async (type: string) => {
+    setBusy('add')
+    try { await callApi('/api/data/page-sections', 'POST', { pageId: page.id, type }); toast.success(`${type} section added`); setShowAddPanel(false); refetch() }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) }
+  }
+  const duplicateSection = async (id: string) => { setBusy(id); try { await callApi('/api/data/page-sections', 'PUT', { id, action: 'duplicate' }); toast.success('Section duplicated'); refetch() } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) } }
+  const moveSection = async (id: string, dir: 'moveUp' | 'moveDown') => { setBusy(id + dir); try { await callApi('/api/data/page-sections', 'PUT', { id, action: dir }); refetch() } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) } }
+  const toggleHide = async (s: Section) => { setBusy(s.id); try { await callApi('/api/data/page-sections', 'PUT', { id: s.id, isHidden: !s.isHidden }); refetch() } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) } }
+  const deleteSection = async (id: string) => { setBusy(id); try { await callApi(`/api/data/page-sections?id=${id}`, 'DELETE'); toast.success('Section deleted'); refetch() } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) } }
+  const updateSection = async (id: string, content: Record<string, unknown>) => { try { await callApi('/api/data/page-sections', 'PUT', { id, content }); } catch { toast.error('Save failed') } }
+  const aiAction = async (s: Section, action: string) => { setBusy(s.id + action); try { const d = await callApi('/api/ai/section-rewrite', 'POST', { action, content: s.content, sectionType: s.type }); const updated = { ...s, content: d.content }; await updateSection(s.id, d.content); toast.success(`AI ${action.toLowerCase()} done! -${d.creditsUsed} credits`); refetch() } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) } }
+
+  const publish = async () => { setBusy('publish'); try { toast.success('Page published', { description: 'Your changes are now live.' }); } finally { setBusy(null) } }
+
+  if (loading || !pageData) return <Skeleton className="h-96 rounded-xl" />
+
+  return (
+    <div className="space-y-3">
+      {/* Toolbar */}
+      <Card>
+        <CardContent className="p-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="h-4 w-4 mr-1.5" />Pages</Button>
+            <div className="h-6 w-px bg-border" />
+            <div><p className="text-sm font-semibold">{pageData.title}</p><p className="text-[10px] text-muted-foreground">creatoros.io/{pageData.slug}</p></div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className={cn('text-[10px]', pageData.status === 'PUBLISHED' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600')}>{pageData.status}</Badge>
+            <Button size="sm" variant="outline" onClick={() => toast.info('Preview opened in new tab')}><Eye className="h-3.5 w-3.5 mr-1.5" />Preview</Button>
+            <Button size="sm" onClick={publish} disabled={busy === 'publish'}><Globe className="h-3.5 w-3.5 mr-1.5" />Publish</Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+        {/* Section list (vertical, no canvas) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold">Sections <span className="text-muted-foreground font-normal">({pageData.sections.length})</span></p>
+            <Button size="sm" variant="outline" onClick={() => setShowAddPanel(true)}><Plus className="h-3.5 w-3.5 mr-1.5" />Add Section</Button>
+          </div>
+
+          {pageData.sections.length === 0 ? (
+            <Card><CardContent className="p-12 text-center"><Layout className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" /><p className="text-sm font-medium">No sections yet</p><p className="text-xs text-muted-foreground mt-1">Add your first section to start building.</p><Button size="sm" className="mt-3" onClick={() => setShowAddPanel(true)}><Plus className="h-3.5 w-3.5 mr-1.5" />Add section</Button></CardContent></Card>
+          ) : (
+            <div className="space-y-1.5">
+              {pageData.sections.map((s, i) => {
+                const meta = SECTION_TYPES.find((t) => t.type === s.type)
+                const Icon = meta?.icon || Layout
+                const isSelected = selectedSection?.id === s.id
+                return (
+                  <motion.div key={s.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}>
+                    <Card className={cn('transition-all', isSelected && 'ring-2 ring-primary', s.isHidden && 'opacity-50')}>
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-5 text-center">{i + 1}</span>
+                          <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg', isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}><Icon className="h-4 w-4" /></div>
+                          <button className="flex-1 text-left min-w-0" onClick={() => setSelectedSection(isSelected ? null : s)}>
+                            <p className="text-sm font-medium truncate">{meta?.name || s.type}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{getSectionPreview(s)}</p>
+                          </button>
+                          <div className="flex items-center gap-0.5">
+                            <IconBtn icon={ArrowUp} onClick={() => moveSection(s.id, 'moveUp')} disabled={busy === s.id + 'moveUp' || i === 0} title="Move up" />
+                            <IconBtn icon={ArrowDown} onClick={() => moveSection(s.id, 'moveDown')} disabled={busy === s.id + 'moveDown' || i === pageData.sections.length - 1} title="Move down" />
+                            <IconBtn icon={Copy} onClick={() => duplicateSection(s.id)} disabled={busy === s.id} title="Duplicate" />
+                            <IconBtn icon={s.isHidden ? EyeOff : Eye} onClick={() => toggleHide(s)} disabled={busy === s.id} title={s.isHidden ? 'Show' : 'Hide'} active={s.isHidden} />
+                            <IconBtn icon={Trash2} onClick={() => deleteSection(s.id)} disabled={busy === s.id} title="Delete" danger />
+                          </div>
+                        </div>
+                        {/* AI actions row */}
+                        <div className="flex items-center gap-1 mt-2 pl-9 flex-wrap">
+                          <button onClick={() => setSelectedSection(s)} className={cn('rounded px-2 py-0.5 text-[10px] font-medium transition', isSelected ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted')}><Pencil className="h-2.5 w-2.5 inline mr-0.5" />Edit</button>
+                          <AIChip label="Rewrite" loading={busy === s.id + 'REWRITE'} onClick={() => aiAction(s, 'REWRITE')} />
+                          <AIChip label="Improve" loading={busy === s.id + 'IMPROVE'} onClick={() => aiAction(s, 'IMPROVE')} />
+                          <AIChip label="Shorten" loading={busy === s.id + 'SHORTEN'} onClick={() => aiAction(s, 'SHORTEN')} />
+                          <AIChip label="Expand" loading={busy === s.id + 'EXPAND'} onClick={() => aiAction(s, 'EXPAND')} />
+                          <AIChip label="Translate" loading={busy === s.id + 'TRANSLATE'} onClick={() => aiAction(s, 'TRANSLATE')} />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* SEO summary */}
+          <Card className="mt-3">
+            <CardHeader className="pb-2"><CardTitle className="text-xs flex items-center gap-1.5"><SearchIcon className="h-3.5 w-3.5 text-primary" />SEO</CardTitle></CardHeader>
+            <CardContent className="space-y-1.5 text-xs">
+              <div><span className="text-muted-foreground">Title:</span> <span className="font-medium">{pageData.seoTitle || '(not set)'}</span></div>
+              <div><span className="text-muted-foreground">Description:</span> <span className="text-muted-foreground">{pageData.seoDescription || '(not set)'}</span></div>
+              <div className="flex items-center gap-1.5 pt-1"><Badge variant="secondary" className="text-[9px]">OpenGraph</Badge><Badge variant="secondary" className="text-[9px]">Schema</Badge><Badge variant="secondary" className="text-[9px]">Twitter Cards</Badge></div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right-side settings panel */}
+        <div className="lg:sticky lg:top-4 h-fit">
+          {selectedSection ? (
+            <SectionSettingsPanel section={selectedSection} onUpdate={(c) => { updateSection(selectedSection.id, c); setSelectedSection({ ...selectedSection, content: c }) }} />
+          ) : (
+            <Card><CardContent className="p-6 text-center"><Pencil className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" /><p className="text-sm font-medium">Section settings</p><p className="text-xs text-muted-foreground mt-1">Click any section to edit its content, or use AI actions to rewrite it.</p></CardContent></Card>
+          )}
+        </div>
+      </div>
+
+      {/* Add section panel */}
+      <AnimatePresence>
+        {showAddPanel && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowAddPanel(false)}>
+            <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl">
+              <Card><CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">Add a section</CardTitle><Button variant="ghost" size="icon" onClick={() => setShowAddPanel(false)}>✕</Button></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {SECTION_TYPES.map((t) => { const Icon = t.icon; return (
+                      <button key={t.type} onClick={() => addSection(t.type)} disabled={busy === 'add'} className="group flex flex-col items-start gap-1.5 rounded-xl border p-3 hover:border-primary/40 hover:bg-primary/5 transition disabled:opacity-50">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary group-hover:scale-110 transition"><Icon className="h-4 w-4" /></div>
+                        <p className="text-xs font-medium">{t.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{t.desc}</p>
+                      </button>
+                    )})}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function IconBtn({ icon: Icon, onClick, disabled, title, danger, active }: { icon: React.ComponentType<{ className?: string }>; onClick: () => void; disabled?: boolean; title: string; danger?: boolean; active?: boolean }) {
+  return (
+    <button onClick={onClick} disabled={disabled} title={title}
+      className={cn('flex h-7 w-7 items-center justify-center rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed',
+        danger ? 'text-rose-500 hover:bg-rose-500/10' : active ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+      <Icon className="h-3.5 w-3.5" />
+    </button>
+  )
+}
+
+function AIChip({ label, loading, onClick }: { label: string; loading: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} disabled={loading} className="rounded px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10 transition disabled:opacity-50 flex items-center gap-1">
+      {loading ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Sparkles className="h-2.5 w-2.5" />}{label}
+    </button>
+  )
+}
+
+function getSectionPreview(s: Section): string {
+  const c = s.content
+  if (s.type === 'HERO') return String((c as { headline?: string }).headline || 'Headline')
+  if (s.type === 'HEADING') return String((c as { text?: string }).text || 'Heading')
+  if (s.type === 'TEXT') return String((c as { text?: string }).text || 'Paragraph').slice(0, 60)
+  if (s.type === 'CTA') return String((c as { headline?: string }).headline || 'CTA')
+  if (s.type === 'FEATURES' || s.type === 'BENEFITS' || s.type === 'TESTIMONIALS' || s.type === 'FAQ') return String((c as { heading?: string }).heading || s.type)
+  if (s.type === 'PRICING') return String((c as { heading?: string }).heading || 'Pricing')
+  return s.type
+}
+
+// ===== Right-side section settings panel =====
+function SectionSettingsPanel({ section, onUpdate }: { section: Section; onUpdate: (c: Record<string, unknown>) => void }) {
+  const meta = SECTION_TYPES.find((t) => t.type === section.type)
+  const Icon = meta?.icon || Layout
+  const c = section.content
+  const set = (k: string, v: unknown) => onUpdate({ ...c, [k]: v })
+
+  return (
+    <Card>
+      <CardHeader className="pb-3 flex-row items-center justify-between">
+        <CardTitle className="text-sm flex items-center gap-2"><Icon className="h-4 w-4 text-primary" />{meta?.name} settings</CardTitle>
+        <Badge variant="secondary" className="text-[10px]">Section {section.position + 1}</Badge>
+      </CardHeader>
+      <CardContent className="space-y-3 max-h-[70vh] overflow-y-auto scroll-thin">
+        <SectionFields type={section.type} content={c} set={set} />
+      </CardContent>
+    </Card>
+  )
+}
+
+function Field({ k, label, textarea, content, set }: { k: string; label: string; textarea?: boolean; content: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
+  return (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      {textarea ? <Textarea className="mt-1 text-sm" rows={3} value={String(content[k] ?? '')} onChange={(e) => set(k, e.target.value)} /> : <Input className="mt-1 h-8 text-sm" value={String(content[k] ?? '')} onChange={(e) => set(k, e.target.value)} />}
+    </div>
+  )
+}
+
+function SectionFields({ type, content, set }: { type: string; content: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
+  if (type === 'HERO') return <><Field k="emoji" label="Emoji" content={content} set={set} /><Field k="headline" label="Headline" content={content} set={set} /><Field k="subheadline" label="Subheadline" textarea content={content} set={set} /><Field k="ctaText" label="Primary CTA" content={content} set={set} /><Field k="ctaSecondary" label="Secondary CTA" content={content} set={set} /></>
+  if (type === 'HEADING') return <><Field k="text" label="Heading text" content={content} set={set} /><div><Label className="text-xs">Alignment</Label><Select value={String(content.alignment || 'center')} onValueChange={(v) => set('alignment', v)}><SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="left">Left</SelectItem><SelectItem value="center">Center</SelectItem><SelectItem value="right">Right</SelectItem></SelectContent></Select></div></>
+  if (type === 'TEXT') return <><Field k="text" label="Paragraph" textarea content={content} set={set} /></>
+  if (type === 'CTA') return <><Field k="headline" label="Headline" content={content} set={set} /><Field k="subtext" label="Subtext" textarea content={content} set={set} /><Field k="ctaText" label="Button text" content={content} set={set} /></>
+  if (type === 'NEWSLETTER') return <><Field k="heading" label="Heading" content={content} set={set} /><Field k="subtext" label="Subtext" content={content} set={set} /><Field k="placeholder" label="Input placeholder" content={content} set={set} /><Field k="ctaText" label="Button text" content={content} set={set} /></>
+  if (type === 'VIDEO') return <><Field k="heading" label="Heading" content={content} set={set} /><Field k="videoUrl" label="Video URL" content={content} set={set} /><Field k="description" label="Description" textarea content={content} set={set} /></>
+  if (type === 'COUNTDOWN') return <><Field k="heading" label="Heading" content={content} set={set} /><Field k="endDate" label="End date (ISO)" content={content} set={set} /><Field k="ctaText" label="CTA text" content={content} set={set} /></>
+  if (type === 'FOOTER') return <><Field k="brand" label="Brand name" content={content} set={set} /><Field k="tagline" label="Tagline" content={content} set={set} /></>
+  if (type === 'FEATURES' || type === 'BENEFITS') {
+    const items = (content.items as { icon?: string; title?: string; description?: string }[]) || []
+    return <><Field k="heading" label="Heading" content={content} set={set} />{type === 'FEATURES' && <Field k="subheading" label="Subheading" content={content} set={set} />}
+      <div><Label className="text-xs">Items</Label>
+        <div className="space-y-2 mt-1">{items.map((it, i) => (
+          <div key={i} className="rounded-lg border p-2 space-y-1.5">
+            {type === 'FEATURES' && <Input className="h-7 text-sm" placeholder="Icon (emoji)" value={it.icon || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, icon: e.target.value }; set('items', n) }} />}
+            <Input className="h-7 text-sm" placeholder="Title" value={it.title || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, title: e.target.value }; set('items', n) }} />
+            <Textarea className="text-sm" rows={2} placeholder="Description" value={it.description || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, description: e.target.value }; set('items', n) }} />
+          </div>
+        ))}<Button size="sm" variant="outline" className="mt-1" onClick={() => set('items', [...items, { icon: '✨', title: '', description: '' }])}><Plus className="h-3 w-3 mr-1" />Add item</Button></div>
+      </div></>
+  }
+  if (type === 'PRICING') {
+    const plans = (content.plans as { name?: string; price?: number; interval?: string; features?: string[]; cta?: string; highlighted?: boolean }[]) || []
+    return <><Field k="heading" label="Heading" content={content} set={set} />
+      <div><Label className="text-xs">Plans</Label>
+        <div className="space-y-2 mt-1">{plans.map((p, i) => (
+          <div key={i} className="rounded-lg border p-2 space-y-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
+              <Input className="h-7 text-sm" placeholder="Name" value={p.name || ''} onChange={(e) => { const n = [...plans]; n[i] = { ...p, name: e.target.value }; set('plans', n) }} />
+              <Input type="number" className="h-7 text-sm" placeholder="$" value={p.price ?? 0} onChange={(e) => { const n = [...plans]; n[i] = { ...p, price: Number(e.target.value) }; set('plans', n) }} />
+              <Input className="h-7 text-sm" placeholder="/mo" value={p.interval || ''} onChange={(e) => { const n = [...plans]; n[i] = { ...p, interval: e.target.value }; set('plans', n) }} />
+            </div>
+            <Input className="h-7 text-sm" placeholder="CTA" value={p.cta || ''} onChange={(e) => { const n = [...plans]; n[i] = { ...p, cta: e.target.value }; set('plans', n) }} />
+            <Textarea className="text-sm" rows={2} placeholder="Features (one per line)" value={(p.features || []).join('\n')} onChange={(e) => { const n = [...plans]; n[i] = { ...p, features: e.target.value.split('\n') }; set('plans', n) }} />
+          </div>
+        ))}</div>
+      </div></>
+  }
+  if (type === 'TESTIMONIALS' || type === 'FAQ') {
+    const items = content.items as Record<string, string>[]
+    const key1 = type === 'TESTIMONIALS' ? 'quote' : 'question'
+    const key2 = type === 'TESTIMONIALS' ? 'name' : 'answer'
+    const key3 = type === 'TESTIMONIALS' ? 'role' : ''
+    return <><Field k="heading" label="Heading" content={content} set={set} />
+      <div><Label className="text-xs">Items</Label>
+        <div className="space-y-2 mt-1">{items?.map((it, i) => (
+          <div key={i} className="rounded-lg border p-2 space-y-1.5">
+            <Textarea className="text-sm" rows={2} placeholder={key1} value={it[key1] || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, [key1]: e.target.value }; set('items', n) }} />
+            {key3 ? <div className="grid grid-cols-2 gap-1.5"><Input className="h-7 text-sm" placeholder="Name" value={it[key2] || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, [key2]: e.target.value }; set('items', n) }} /><Input className="h-7 text-sm" placeholder="Role" value={it[key3] || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, [key3]: e.target.value }; set('items', n) }} /></div>
+              : <Input className="h-7 text-sm" placeholder="Answer" value={it[key2] || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, [key2]: e.target.value }; set('items', n) }} />}
+          </div>
+        ))}<Button size="sm" variant="outline" className="mt-1" onClick={() => set('items', [...(items || []), { [key1]: '', [key2]: '', ...(key3 ? { [key3]: '' } : {}) }])}><Plus className="h-3 w-3 mr-1" />Add item</Button></div>
+      </div></>
+  }
+  return <p className="text-xs text-muted-foreground">No editable fields for this section type.</p>
+}
+
+// ===== Funnels panel =====
+function FunnelsPanel() {
+  const { data, loading } = useApi<{ funnels: { id: string; name: string; description: string; type: string; status: string; visits: number; conversions: number; revenue: number; steps: { id: string; name: string; type: string; position: number; isRequired: boolean; page: { id: string; title: string; slug: string } | null }[] }[]; stats: { total: number; live: number; totalVisits: number; totalRevenue: number } }>('/api/data/funnels')
+  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  const STEP_ICONS: Record<string, React.ComponentType<{ className?: string }>> = { LANDING: Rocket, CHECKOUT: ShoppingCart, UPSELL: TrendingUp, DOWNSELL: TrendingUp, THANK_YOU: Check, EMAIL: Mail, COMMUNITY_INVITE: Users, COURSE_ACCESS: FileText }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { l: 'Funnels', v: data.stats.total, i: Megaphone },
+          { l: 'Live', v: data.stats.live, i: Check },
+          { l: 'Total Visits', v: formatNumber(data.stats.totalVisits, true), i: Eye },
+          { l: 'Revenue', v: `$${formatNumber(data.stats.totalRevenue, true)}`, i: DollarSign },
+        ].map((s) => { const Icon = s.i; return (
+          <Card key={s.l}><CardContent className="p-4 flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div><div><p className="text-lg font-bold tabular-nums leading-none">{s.v}</p><p className="text-[11px] text-muted-foreground mt-1">{s.l}</p></div></CardContent></Card>
+        )})}
+      </div>
+
+      <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Your Funnels</h3><Button size="sm" onClick={() => toast.success('Funnel builder opened', { description: 'Create a connected sequence of pages.' })}><Plus className="h-4 w-4 mr-1.5" />New Funnel</Button></div>
+
+      {data.funnels.map((f, fi) => (
+        <Card key={f.id}>
+          <CardHeader className="pb-3 flex-row items-center justify-between">
+            <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600"><Megaphone className="h-5 w-5" /></div><div><p className="font-semibold text-sm">{f.name}</p><p className="text-xs text-muted-foreground">{f.description}</p></div></div>
+            <div className="flex items-center gap-2"><Badge variant="secondary" className={cn('text-[10px]', f.status === 'LIVE' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600')}>{f.status}</Badge><span className="text-xs text-muted-foreground">{formatNumber(f.visits)} visits · {f.conversions} conv. · ${formatNumber(f.revenue)}</span></div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-1 overflow-x-auto scroll-thin pb-2">
+              {f.steps.map((s, i) => { const Icon = STEP_ICONS[s.type] || FileText; return (
+                <div key={s.id} className="flex items-center shrink-0">
+                  <div className={cn('flex flex-col items-center gap-1 rounded-lg border p-2.5 w-28 text-center', s.page ? 'bg-card' : 'bg-muted/30 border-dashed')}>
+                    <div className={cn('flex h-7 w-7 items-center justify-center rounded-full', s.isRequired ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}><Icon className="h-3.5 w-3.5" /></div>
+                    <p className="text-[10px] font-medium leading-tight">{s.name}</p>
+                    <Badge variant="secondary" className="text-[8px] h-3.5 px-1">{s.type}</Badge>
+                  </div>
+                  {i < f.steps.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mx-0.5" />}
+                </div>
+              )})}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+// ===== Navigation panel =====
+function NavigationPanel() {
+  return (
+    <Card><CardContent className="p-5 space-y-4">
+      <div><p className="text-sm font-semibold mb-1">Header Navigation</p><p className="text-xs text-muted-foreground mb-3">Menu items shown in your site header.</p>
+        <div className="space-y-2">{[{ label: 'Home', url: '/' }, { label: 'Courses', url: '/courses' }, { label: 'Pricing', url: '/pricing' }, { label: 'Blog', url: '/blog' }].map((n, i) => (
+          <div key={i} className="flex items-center gap-2 rounded-lg border p-2"><GripVertical className="h-4 w-4 text-muted-foreground" /><Input className="h-8 text-sm flex-1" defaultValue={n.label} /><Input className="h-8 text-sm flex-1 font-mono" defaultValue={n.url} /><Button size="icon" variant="ghost" className="h-8 w-8 text-rose-500"><Trash2 className="h-3.5 w-3.5" /></Button></div>
+        ))}<Button size="sm" variant="outline"><Plus className="h-3.5 w-3.5 mr-1.5" />Add menu item</Button></div>
+      </div>
+      <div className="border-t pt-4"><div className="flex items-center justify-between"><div><p className="text-sm font-medium">Show login button</p><p className="text-xs text-muted-foreground">Display a "Log in" link in the header.</p></div><Switch defaultChecked /></div></div>
+      <div className="border-t pt-4"><div className="flex items-center justify-between"><div><p className="text-sm font-medium">Announcement bar</p><p className="text-xs text-muted-foreground">Promotional bar at the top of your site.</p></div><Switch defaultChecked /></div><Input className="mt-2 h-8 text-sm" defaultValue="🎉 Black Friday: 50% off all annual plans!" /></div>
+      <Button size="sm" onClick={() => toast.success('Navigation saved')}><Save className="h-3.5 w-3.5 mr-1.5" />Save navigation</Button>
+    </CardContent></Card>
+  )
+}
+
+// ===== Blog panel =====
+function BlogPanel() {
+  const { data, loading } = useApi<{ posts: { id: string; title: string; slug: string; excerpt: string; category: string; tags: string[]; author: string; status: string; visits: number; publishedAt: string; createdAt: string }[]; stats: { total: number; published: number; drafts: number; totalVisits: number } }>('/api/data/blog')
+  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  const STATUS_CLS: Record<string, string> = { PUBLISHED: 'bg-emerald-500/10 text-emerald-600', DRAFT: 'bg-amber-500/10 text-amber-600' }
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[{ l: 'Posts', v: data.stats.total, i: BookOpen }, { l: 'Published', v: data.stats.published, i: Check }, { l: 'Drafts', v: data.stats.drafts, i: Pencil }, { l: 'Visits', v: formatNumber(data.stats.totalVisits, true), i: Eye }].map((s) => { const Icon = s.i; return (
+          <Card key={s.l}><CardContent className="p-4 flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div><div><p className="text-lg font-bold tabular-nums leading-none">{s.v}</p><p className="text-[11px] text-muted-foreground mt-1">{s.l}</p></div></CardContent></Card>
+        )})}
+      </div>
+      <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Blog Posts</h3><Button size="sm" onClick={() => toast.success('New post editor opened')}><Plus className="h-4 w-4 mr-1.5" />New Post</Button></div>
+      <Card><CardContent className="p-0">{data.posts.map((p, i) => (
+        <motion.div key={p.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="flex items-center gap-3 p-3 border-b last:border-0 hover:bg-muted/50 transition cursor-pointer" onClick={() => toast.info(`Editing "${p.title}"`)}>
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600"><BookOpen className="h-5 w-5" /></div>
+          <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{p.title}</p><p className="text-xs text-muted-foreground truncate">{p.excerpt}</p><div className="flex items-center gap-2 mt-0.5"><Badge variant="secondary" className="text-[9px]">{p.category}</Badge>{p.tags.slice(0, 2).map((t) => <Badge key={t} variant="secondary" className="text-[9px] bg-muted">#{t}</Badge>)}</div></div>
+          <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground"><div className="text-right"><p className="font-medium text-foreground tabular-nums">{formatNumber(p.visits, true)}</p><p>visits</p></div></div>
+          <Badge variant="secondary" className={cn('text-[10px]', STATUS_CLS[p.status])}>{p.status}</Badge>
+          <span className="text-xs text-muted-foreground">{timeAgo(p.publishedAt || p.createdAt)}</span>
+        </motion.div>
+      ))}</CardContent></Card>
+    </div>
+  )
+}
+
+// ===== Domains panel =====
+function DomainsPanel() {
+  return (
+    <div className="space-y-4">
+      <Card className="border-emerald-500/20 bg-emerald-500/5"><CardContent className="p-4 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600"><Check className="h-5 w-5" /></div><div className="flex-1"><p className="text-sm font-medium">creatoros.io</p><p className="text-xs text-muted-foreground">Primary domain · SSL active · Auto-renewing</p></div><Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600">Connected</Badge></CardContent></Card>
+      <Card><CardHeader><CardTitle className="text-sm flex items-center gap-2"><Server className="h-4 w-4 text-primary" />Connect a custom domain</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div><Label>Domain name</Label><Input className="mt-1.5" placeholder="yourbrand.com" /><p className="text-[10px] text-muted-foreground mt-1">We'll automatically provision SSL and configure DNS for you.</p></div>
+          <Button size="sm" onClick={() => toast.success('Domain connection started', { description: 'DNS verification may take 10-30 minutes.' })}><Server className="h-3.5 w-3.5 mr-1.5" />Connect domain</Button>
+        </CardContent>
+      </Card>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <Card><CardHeader className="pb-3"><CardTitle className="text-sm">Redirects</CardTitle></CardHeader><CardContent className="space-y-2"><div className="flex items-center gap-2"><Input className="h-8 text-xs font-mono" defaultValue="/old-page" /><ArrowRight /><Input className="h-8 text-xs font-mono" defaultValue="/new-page" /></div><Button size="sm" variant="outline"><Plus className="h-3 w-3 mr-1" />Add redirect</Button></CardContent></Card>
+        <Card><CardHeader className="pb-3"><CardTitle className="text-sm">Subdomains</CardTitle></CardHeader><CardContent className="space-y-2"><div className="flex items-center justify-between rounded-lg border p-2"><span className="text-xs font-mono">app.creatoros.io</span><Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-600">Active</Badge></div><Button size="sm" variant="outline"><Plus className="h-3 w-3 mr-1" />Add subdomain</Button></CardContent></Card>
+      </div>
+    </div>
+  )
+}
+
+function ArrowRight() { return <ChevronRight className="h-3.5 w-3.5 text-muted-foreground rotate-[-90deg]" /> }
+
+// ===== SEO panel =====
+function SeoPanel() {
+  return (
+    <div className="space-y-4">
+      <Card><CardHeader><CardTitle className="text-sm flex items-center gap-2"><SearchIcon className="h-4 w-4 text-primary" />Global SEO Settings</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div><Label>Default meta title</Label><Input className="mt-1.5 text-sm" defaultValue="CreatorOS — The All-in-One Platform for Creators" /></div>
+          <div><Label>Default meta description</Label><Textarea className="mt-1.5 text-sm" rows={2} defaultValue="Sell courses, products, and memberships. Build a community. Create content 10x faster with AI." /></div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div><Label>Twitter card type</Label><Select defaultValue="summary_large_image"><SelectTrigger className="mt-1.5 text-sm"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="summary">Summary</SelectItem><SelectItem value="summary_large_image">Summary with large image</SelectItem></SelectContent></Select></div>
+            <div><Label>Robots</Label><Input className="mt-1.5 text-sm font-mono" defaultValue="index, follow" /></div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3 pt-2"><div className="rounded-lg border p-3"><p className="text-xs font-medium">Sitemap</p><p className="text-[10px] text-muted-foreground mt-0.5">creatoros.io/sitemap.xml</p><Badge variant="secondary" className="mt-1.5 text-[10px] bg-emerald-500/10 text-emerald-600">Auto-generated</Badge></div><div className="rounded-lg border p-3"><p className="text-xs font-medium">robots.txt</p><p className="text-[10px] text-muted-foreground mt-0.5">creatoros.io/robots.txt</p><Badge variant="secondary" className="mt-1.5 text-[10px] bg-emerald-500/10 text-emerald-600">Auto-generated</Badge></div></div>
+          <Button size="sm" onClick={() => toast.success('SEO settings saved')}><Save className="h-3.5 w-3.5 mr-1.5" />Save SEO settings</Button>
+        </CardContent>
+      </Card>
+      <Card className="border-primary/20 bg-primary/5"><CardContent className="p-4 flex items-center gap-3"><Sparkles className="h-5 w-5 text-primary" /><div className="flex-1"><p className="text-sm font-medium">AI SEO Optimization</p><p className="text-xs text-muted-foreground">Let AI analyze your pages and suggest SEO improvements.</p></div><Button size="sm" variant="outline" onClick={() => toast.info('Analyzing pages...', { description: 'AI will suggest title, description, and keyword improvements.' })}><Wand2 className="h-3.5 w-3.5 mr-1.5" />Run analysis</Button></CardContent></Card>
+    </div>
+  )
+}
+
+// ===== Site Settings panel =====
+function SiteSettingsPanel() {
+  const { data, loading, refetch } = useApi<{ settings: { id: string; key: string; value: unknown; category: string }[] }>('/api/data/site-settings')
+  const [edits, setEdits] = useState<Record<string, unknown>>({})
+  const [saving, setSaving] = useState<string | null>(null)
+  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+
+  const byCat = (cat: string) => data.settings.filter((s) => s.category === cat)
+  const getVal = (k: string) => edits[k] !== undefined ? edits[k] : data.settings.find((s) => s.key === k)?.value
+  const setVal = (k: string, v: unknown) => setEdits((e) => ({ ...e, [k]: v }))
+  const save = async (id: string, key: string) => { setSaving(key); try { await fetch('/api/data/site-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, value: edits[key] }) }); toast.success(`${key} saved`); setEdits((e) => { const n = { ...e }; delete n[key]; return n }); refetch() } catch { toast.error('Failed') } finally { setSaving(null) } }
+
+  return (
+    <div className="space-y-4">
+      {/* Brand */}
+      <Card><CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Settings2 className="h-4 w-4 text-primary" />Brand</CardTitle></CardHeader><CardContent className="space-y-3">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div><Label className="text-xs">Brand name</Label><Input className="mt-1 h-8 text-sm" value={String(getVal('brand_name') ?? '')} onChange={(e) => setVal('brand_name', e.target.value)} /></div>
+          <div><Label className="text-xs">Primary color</Label><div className="flex gap-2 mt-1"><Input className="h-8 text-sm font-mono" value={String(getVal('brand_primary_color') ?? '')} onChange={(e) => setVal('brand_primary_color', e.target.value)} /><div className="h-8 w-8 rounded border" style={{ background: String(getVal('brand_primary_color') ?? '#10b981') }} /></div></div>
+        </div>
+        <div><Label className="text-xs">Font family</Label><Select value={String(getVal('brand_font') ?? 'Inter')} onValueChange={(v) => setVal('brand_font', v)}><SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger><SelectContent>{['Inter', 'Geist', 'Poppins', 'DM Sans', 'Plus Jakarta Sans'].map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent></Select></div>
+        <SaveRow saving={saving === 'brand_name'} onSave={() => save(byCat('brand').find((s) => s.key === 'brand_name')?.id || '', 'brand_name')} />
+      </CardContent></Card>
+
+      {/* Announcement bar */}
+      <Card><CardHeader className="pb-3"><CardTitle className="text-sm">Announcement Bar</CardTitle></CardHeader><CardContent className="space-y-2">
+        <div className="flex items-center justify-between"><span className="text-xs">Enabled</span><Switch defaultChecked /></div>
+        <div><Label className="text-xs">Message</Label><Input className="mt-1 h-8 text-sm" defaultValue="🎉 Black Friday: 50% off all annual plans!" /></div>
+        <Button size="sm" onClick={() => toast.success('Announcement bar saved')}><Save className="h-3.5 w-3.5 mr-1.5" />Save</Button>
+      </CardContent></Card>
+
+      {/* Analytics */}
+      <Card><CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" />Analytics & Scripts</CardTitle></CardHeader><CardContent className="space-y-3">
+        <div><Label className="text-xs">Google Analytics ID</Label><Input className="mt-1 h-8 text-sm font-mono" defaultValue="G-XXXXXXXXXX" /></div>
+        <div><Label className="text-xs">Meta Pixel ID</Label><Input className="mt-1 h-8 text-sm font-mono" defaultValue="" placeholder="(optional)" /></div>
+        <div><Label className="text-xs">Custom scripts (head)</Label><Textarea className="mt-1 text-xs font-mono" rows={3} placeholder="<script>...</script>" /></div>
+        <Button size="sm" onClick={() => toast.success('Analytics settings saved')}><Save className="h-3.5 w-3.5 mr-1.5" />Save</Button>
+      </CardContent></Card>
+    </div>
+  )
+}
+
+function SaveRow({ saving, onSave }: { saving: boolean; onSave: () => void }) {
+  return <Button size="sm" onClick={onSave} disabled={saving}>{saving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}Save</Button>
+}
