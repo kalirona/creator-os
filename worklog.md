@@ -323,3 +323,51 @@ Stage Summary:
 - Inspector toggles on respective sidebars (not toolbar)
 - Add Block button fully functional with 6 block types
 - Zero dead buttons remain
+
+---
+Task ID: PHASE-11.2-BLOCKS-AND-PRICING
+Agent: Main (Block Types + Course Pricing)
+Task: Add more block types (video/YouTube/image/document) and pricing/access controls
+
+Work Log:
+- Expanded block types from 6 to 10:
+  * Heading, Text (existing)
+  * YouTube (NEW — URL input, auto-converts to embed format)
+  * Video URL (NEW — URL input, supports YouTube/Vimeo/direct video)
+  * Image (NEW — URL input, inserts markdown image)
+  * Document (NEW — inserts download link block)
+  * Quiz (enhanced with explanation field)
+  * Callout (existing)
+  * Code (NEW — inserts code block)
+  * Divider (existing)
+- Added URL input dialogs for video and image blocks with auto-formatting
+- YouTube URL auto-converts: youtube.com/watch?v=ID → youtube.com/embed/ID
+- Vimeo URL auto-converts: vimeo.com/ID → player.vimeo.com/video/ID
+- Completely rewrote Right Panel Course tab:
+  * All inputs are now controlled (not defaultValue)
+  * Added Description textarea (controlled)
+  * Added Category select with 9 options (controlled)
+  * Added Level select (controlled)
+  * Added Pricing section: USD input + Free/Paid toggle buttons
+  * Added Access control: Public / Community members only / Private (invite only)
+  * Added Status toggle: Draft / Published / Archived
+  * Added Revenue stat (students × price)
+- Added onUpdateCourse callback to RightPanel for course settings persistence
+
+Browser-Verified:
+- 10 block types appear in picker ✅
+- YouTube block: click → URL input → enter URL → "Video block added" toast → content has embed ✅
+- Image block: click → URL input → enter URL → "Image block added" toast → content has markdown image ✅
+- Course tab: Free button sets price to 0 ✅
+- Course tab: Paid button sets price to 99 ✅
+- Course tab: Draft/Published/Archived buttons highlight correctly ✅
+- Course tab: Access control radio buttons (Public/Community/Private) ✅
+- Zero console errors ✅
+- Zero page errors ✅
+
+Stage Summary:
+- Lint: 0 errors
+- TypeScript: 0 errors
+- Dev server: HTTP 200
+- 10 block types (4 new: YouTube, Video URL, Image, Document, Code)
+- Course tab fully controlled with pricing, access, and status

@@ -12,7 +12,8 @@ import {
   Trash2, Eye, Save, Rocket, Archive, Undo2, Redo2, PanelLeftClose, PanelLeftOpen,
   PanelRightClose, PanelRightOpen, Loader2, CheckCircle2, AlertCircle, CircleDot,
   BookOpen, FileText, Video, FileQuestion, Download, Type, FileEdit, Clock,
-  Keyboard, X, Settings, Sparkles,
+  Keyboard, X, Settings, Sparkles, Image as ImageIcon, Code, PlayCircle,
+  DollarSign, Users, Lock, Globe, Link2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -406,7 +407,13 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
               transition={{ duration: 0.2 }}
               className="hidden md:flex flex-col border-l bg-muted/30 overflow-hidden shrink-0"
             >
-              <RightPanel lesson={activeLesson} course={course} onClose={() => setRightOpen(false)} onUpdateLesson={(patch) => {
+              <RightPanel lesson={activeLesson} course={course} onClose={() => setRightOpen(false)} onUpdateCourse={(patch) => {
+                if (!course) return
+                setCourse({ ...course, ...patch })
+                // Trigger save
+                if (patch.title !== undefined) setTitle(patch.title)
+                if (patch.description !== undefined) setDescription(patch.description)
+              }} onUpdateLesson={(patch) => {
                 if (!activeLesson) return
                 setSections(sections.map(s => ({
                   ...s,
@@ -782,21 +789,83 @@ function LessonRow({
 // ─── Lesson Editor (center) ──────────────────────────────────────────────────
 function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: Partial<Lesson>) => void }) {
   const [showBlockPicker, setShowBlockPicker] = useState(false)
+  const [showVideoInput, setShowVideoInput] = useState(false)
+  const [videoUrl, setVideoUrl] = useState('')
+  const [showImageInput, setShowImageInput] = useState(false)
+  const [imageUrl, setImageUrl] = useState('')
 
   const BLOCK_TYPES = [
     { label: 'Heading', icon: Type, template: '\n\n## New Heading\n\n' },
     { label: 'Text', icon: FileText, template: '\n\nWrite your text here...\n\n' },
-    { label: 'Video', icon: Video, template: '\n\n[▶ Video placeholder — paste your video URL here]\n\n' },
-    { label: 'Quiz', icon: FileQuestion, template: '\n\n### Quiz\n**Question:** Type your question here?\n- [ ] Option A\n- [ ] Option B\n- [x] Option C (correct)\n\n' },
+    { label: 'YouTube', icon: Video, action: 'youtube' },
+    { label: 'Video URL', icon: PlayCircle, action: 'video' },
+    { label: 'Image', icon: ImageIcon, action: 'image' },
+    { label: 'Document', icon: FileText, action: 'document' },
+    { label: 'Quiz', icon: FileQuestion, template: '\n\n### Quiz\n**Question:** Type your question here?\n- [ ] Option A\n- [ ] Option B\n- [x] Option C (correct)\n\n**Explanation:** Add your explanation here.\n\n' },
     { label: 'Callout', icon: AlertCircle, template: '\n\n> 💡 **Tip:** Add an important callout here.\n\n' },
+    { label: 'Code', icon: Code, template: '\n\n```\n// Your code here\n```\n\n' },
     { label: 'Divider', icon: BookOpen, template: '\n\n---\n\n' },
   ]
 
-  const addBlock = (template: string) => {
-    const newContent = (lesson.content || '') + template
+  const addBlock = (block: typeof BLOCK_TYPES[number]) => {
+    if (block.action === 'youtube') {
+      setShowVideoInput(true)
+      setShowBlockPicker(false)
+      return
+    }
+    if (block.action === 'video') {
+      setShowVideoInput(true)
+      setShowBlockPicker(false)
+      return
+    }
+    if (block.action === 'image') {
+      setShowImageInput(true)
+      setShowBlockPicker(false)
+      return
+    }
+    if (block.action === 'document') {
+      // Add a document download block
+      const newContent = (lesson.content || '') + '\n\n📄 **Download:** [Click here to download](paste-your-document-url-here)\n\n'
+      onUpdate({ content: newContent })
+      setShowBlockPicker(false)
+      toast.success('Document block added — paste your file URL')
+      return
+    }
+    if (block.template) {
+      const newContent = (lesson.content || '') + block.template
+      onUpdate({ content: newContent })
+      setShowBlockPicker(false)
+      toast.success('Block added')
+    }
+  }
+
+  const insertVideoBlock = () => {
+    if (!videoUrl.trim()) { toast.error('Please enter a video URL'); return }
+    let embedUrl = videoUrl.trim()
+    // Convert YouTube URL to embed format
+    const ytMatch = embedUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/)
+    if (ytMatch) {
+      embedUrl = `https://www.youtube.com/embed/${ytMatch[1]}`
+    }
+    // Convert Vimeo URL
+    const vimeoMatch = embedUrl.match(/vimeo\.com\/(\d+)/)
+    if (vimeoMatch) {
+      embedUrl = `https://player.vimeo.com/video/${vimeoMatch[1]}`
+    }
+    const newContent = (lesson.content || '') + `\n\n<video src="${embedUrl}" controls></video>\n\n[▶ Watch: ${embedUrl}](${embedUrl})\n\n`
     onUpdate({ content: newContent })
-    setShowBlockPicker(false)
-    toast.success('Block added')
+    setVideoUrl('')
+    setShowVideoInput(false)
+    toast.success('Video block added')
+  }
+
+  const insertImageBlock = () => {
+    if (!imageUrl.trim()) { toast.error('Please enter an image URL'); return }
+    const newContent = (lesson.content || '') + `\n\n![Image description](${imageUrl.trim()})\n\n`
+    onUpdate({ content: newContent })
+    setImageUrl('')
+    setShowImageInput(false)
+    toast.success('Image block added')
   }
 
   return (
@@ -860,7 +929,7 @@ Complete the following exercise to practice what you've learned."
                   return (
                     <button
                       key={bt.label}
-                      onClick={() => addBlock(bt.template)}
+                      onClick={() => addBlock(bt)}
                       className="group flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center hover:border-primary/40 hover:bg-primary/5 transition"
                     >
                       <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted group-hover:bg-primary/10 transition">
@@ -874,16 +943,75 @@ Complete the following exercise to practice what you've learned."
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Video URL input */}
+        <AnimatePresence>
+          {showVideoInput && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="w-full max-w-md rounded-xl border bg-card p-4 shadow-lg space-y-3"
+            >
+              <div className="flex items-center gap-2">
+                <Video className="h-4 w-4 text-primary" />
+                <p className="text-sm font-semibold">Add Video</p>
+                <button onClick={() => setShowVideoInput(false)} className="ml-auto text-muted-foreground hover:text-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <Input
+                autoFocus
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                placeholder="Paste YouTube, Vimeo, or direct video URL..."
+                onKeyDown={(e) => e.key === 'Enter' && insertVideoBlock()}
+              />
+              <p className="text-xs text-muted-foreground">Supports YouTube, Vimeo, and direct video URLs (MP4, WebM)</p>
+              <Button size="sm" onClick={insertVideoBlock} className="w-full">Add Video</Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Image URL input */}
+        <AnimatePresence>
+          {showImageInput && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="w-full max-w-md rounded-xl border bg-card p-4 shadow-lg space-y-3"
+            >
+              <div className="flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-primary" />
+                <p className="text-sm font-semibold">Add Image</p>
+                <button onClick={() => setShowImageInput(false)} className="ml-auto text-muted-foreground hover:text-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <Input
+                autoFocus
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="Paste image URL..."
+                onKeyDown={(e) => e.key === 'Enter' && insertImageBlock()}
+              />
+              <p className="text-xs text-muted-foreground">Paste a direct image URL (JPG, PNG, GIF, WebP)</p>
+              <Button size="sm" onClick={insertImageBlock} className="w-full">Add Image</Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
 }
 
 // ─── Right Panel (settings) ──────────────────────────────────────────────────
-function RightPanel({ lesson, course, onUpdateLesson, onClose }: {
+function RightPanel({ lesson, course, onUpdateLesson, onUpdateCourse, onClose }: {
   lesson: Lesson | null
   course: CourseFull
   onUpdateLesson: (patch: Partial<Lesson>) => void
+  onUpdateCourse: (patch: Partial<CourseFull>) => void
   onClose: () => void
 }) {
   const [tab, setTab] = useState<'lesson' | 'course'>('lesson')
@@ -956,23 +1084,139 @@ function RightPanel({ lesson, course, onUpdateLesson, onClose }: {
             </div>
           ) : (
             <>
+              {/* Description */}
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Category</Label>
-                <Input defaultValue={course.category} />
+                <Label className="text-sm font-medium">Course description</Label>
+                <Textarea
+                  rows={3}
+                  value={course.description}
+                  onChange={(e) => onUpdateCourse({ description: e.target.value })}
+                  placeholder="What will students learn?"
+                />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Level</Label>
-                <Input defaultValue={course.level} />
+
+              {/* Category & Level */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Category</Label>
+                  <select
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    value={course.category}
+                    onChange={(e) => onUpdateCourse({ category: e.target.value })}
+                  >
+                    {['Marketing', 'YouTube', 'Community', 'Email', 'Productivity', 'AI', 'Business', 'Design', 'Finance'].map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Level</Label>
+                  <select
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    value={course.level}
+                    onChange={(e) => onUpdateCourse({ level: e.target.value })}
+                  >
+                    <option value="BEGINNER">Beginner</option>
+                    <option value="INTERMEDIATE">Intermediate</option>
+                    <option value="ADVANCED">Advanced</option>
+                  </select>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Price</Label>
-                <Input defaultValue={course.price} />
+
+              {/* Pricing */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-1.5"><DollarSign className="h-4 w-4 text-muted-foreground" /> Pricing</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={course.price}
+                    onChange={(e) => onUpdateCourse({ price: parseFloat(e.target.value) || 0 })}
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-muted-foreground shrink-0">USD</span>
+                </div>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => onUpdateCourse({ price: 0 })}
+                    className={cn('flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition', course.price === 0 ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted')}
+                  >
+                    <Globe className="h-3 w-3 inline mr-1" />Free
+                  </button>
+                  <button
+                    onClick={() => onUpdateCourse({ price: course.price === 0 ? 99 : course.price })}
+                    className={cn('flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition', course.price > 0 ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted')}
+                  >
+                    <Lock className="h-3 w-3 inline mr-1" />Paid
+                  </button>
+                </div>
+                {course.price === 0 ? (
+                  <p className="text-xs text-emerald-600 flex items-center gap-1"><Globe className="h-3 w-3" /> Free course — anyone can enroll</p>
+                ) : (
+                  <p className="text-xs text-amber-600 flex items-center gap-1"><Lock className="h-3 w-3" /> Paid course — ${course.price} to enroll</p>
+                )}
               </div>
+
+              {/* Access control */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-1.5"><Users className="h-4 w-4 text-muted-foreground" /> Access</Label>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer hover:bg-muted/50 transition">
+                    <input type="radio" name="access" defaultChecked className="accent-primary" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Public</p>
+                      <p className="text-xs text-muted-foreground">Anyone can purchase this course</p>
+                    </div>
+                    <Globe className="h-4 w-4 text-muted-foreground" />
+                  </label>
+                  <label className="flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer hover:bg-muted/50 transition">
+                    <input type="radio" name="access" className="accent-primary" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Community members only</p>
+                      <p className="text-xs text-muted-foreground">Only community members can access</p>
+                    </div>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </label>
+                  <label className="flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer hover:bg-muted/50 transition">
+                    <input type="radio" name="access" className="accent-primary" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Private (invite only)</p>
+                      <p className="text-xs text-muted-foreground">Only invited students can access</p>
+                    </div>
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                  </label>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Status</Label>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => onUpdateCourse({ status: 'DRAFT' })}
+                    className={cn('flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition', course.status === 'DRAFT' ? 'border-amber-500 bg-amber-500/10 text-amber-600' : 'hover:bg-muted')}
+                  >
+                    Draft
+                  </button>
+                  <button
+                    onClick={() => onUpdateCourse({ status: 'PUBLISHED' })}
+                    className={cn('flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition', course.status === 'PUBLISHED' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600' : 'hover:bg-muted')}
+                  >
+                    Published
+                  </button>
+                  <button
+                    onClick={() => onUpdateCourse({ status: 'ARCHIVED' })}
+                    className={cn('flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition', course.status === 'ARCHIVED' ? 'border-muted bg-muted text-muted-foreground' : 'hover:bg-muted')}
+                  >
+                    Archived
+                  </button>
+                </div>
+              </div>
+
+              {/* Stats */}
               <div className="rounded-lg bg-muted/50 p-3 space-y-1.5">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stats</p>
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Students</span><span className="font-medium">{course.studentsCount.toLocaleString()}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Lessons</span><span className="font-medium">{course.totalLessons}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Rating</span><span className="font-medium">{course.rating}★</span></div>
+                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Revenue</span><span className="font-medium">${(course.studentsCount * course.price).toLocaleString()}</span></div>
               </div>
             </>
           )}
