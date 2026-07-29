@@ -269,3 +269,57 @@ Stage Summary:
 - Course Builder: FULLY FUNCTIONAL full-screen 3-panel layout
 - No dashboard sidebar/topbar when builder is open
 - Autosave, keyboard shortcuts, drag-drop, preview all working
+
+---
+Task ID: PHASE-11.1-COURSE-BUILDER-QA
+Agent: Main (Course Builder Browser QA & Production Hardening)
+Task: Browser audit and fix every dead button, broken interaction, and layout issue in Course Builder
+
+Work Log:
+- Browser audit found 3 critical issues:
+  1. ScrollArea component had overflow:visible — panels didn't scroll independently
+  2. Inspector toggle was in top toolbar — should be on each sidebar panel
+  3. Add Block button was dead — no onClick handler, did nothing
+
+Fixes Applied:
+1. Replaced all ScrollArea components with native div.overflow-y-auto — left sidebar now scrolls independently (canScroll: true, overflowY: auto)
+2. Removed toggle buttons from top toolbar (0 toggle buttons in toolbar)
+3. Added collapse button (PanelLeftClose) to left sidebar header next to "Section" button
+4. Added collapse button (PanelRightClose) to right panel header next to "Lesson/Course" tabs
+5. Added expand button (PanelLeftOpen) that appears when left sidebar is collapsed
+6. Added expand button (PanelRightOpen) that appears when right panel is collapsed
+7. Rewrote Add Block button — now opens a block type picker with 6 types: Heading, Text, Video, Quiz, Callout, Divider
+8. Each block type inserts a markdown template into the lesson content with toast "Block added"
+
+Browser-Verified (all zero errors):
+- Left sidebar scrolls independently (canScroll: true) ✅
+- Center editor scrolls independently ✅
+- Right panel scrolls independently ✅
+- Left panel collapse button works (collapses, shows expand button) ✅
+- Left panel expand button works (expands back) ✅
+- Right panel collapse button works ✅
+- Right panel expand button works ✅
+- No toggle buttons in top toolbar ✅
+- Add Block button opens picker with 6 block types ✅
+- Clicking Heading block adds content + toast "Block added" ✅
+- Save button works → toast "All changes saved" ✅
+- Publish/Unpublish works → toast "Course published/unpublished" ✅
+- Preview opens dialog → "Student Preview" ✅
+- Keyboard shortcuts (Ctrl+/) opens help ✅
+- Add Section → toast "Section added" ✅
+- Add Lesson → toast "Lesson added" ✅
+- Lesson dropdown menu has 5 items: Rename, Duplicate, Move up, Move down, Delete ✅
+- Double-click lesson rename works (input focuses) ✅
+- Back to Courses returns to list ✅
+- Zero console errors ✅
+- Zero page errors ✅
+
+Stage Summary:
+- Lint: 0 errors
+- TypeScript: 0 errors in src/
+- Dev server: HTTP 200
+- All Course Builder buttons functional
+- All panels scroll independently
+- Inspector toggles on respective sidebars (not toolbar)
+- Add Block button fully functional with 6 block types
+- Zero dead buttons remain

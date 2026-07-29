@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
+
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
@@ -293,13 +293,6 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
         </div>
         {/* Save indicator */}
         <SaveIndicator state={saveState} lastSavedAt={lastSavedAt} />
-        {/* Toggle sidebars */}
-        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setLeftOpen(v => !v)} title="Toggle outline (Ctrl+\)">
-          {leftOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
-        </Button>
-        <Button variant="ghost" size="icon" className="h-9 w-9 hidden md:flex" onClick={() => setRightOpen(v => !v)} title="Toggle inspector (Ctrl+Shift+\)">
-          {rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-        </Button>
         <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setShortcutsOpen(true)} title="Keyboard shortcuts (Ctrl+/)">
           <Keyboard className="h-4 w-4" />
         </Button>
@@ -329,11 +322,16 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
             >
               <div className="flex items-center justify-between px-4 py-3 border-b bg-background/50 shrink-0">
                 <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Course Outline</p>
-                <Button size="sm" variant="ghost" className="h-8 px-3 text-sm gap-1.5" onClick={addSection}>
-                  <Plus className="h-4 w-4" /> Section
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="ghost" className="h-8 px-3 text-sm gap-1.5" onClick={addSection}>
+                    <Plus className="h-4 w-4" /> Section
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setLeftOpen(false)} title="Collapse (Ctrl+\)">
+                    <PanelLeftClose className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <ScrollArea className="flex-1 scroll-thin min-h-0">
+              <div className="flex-1 overflow-y-auto scroll-thin min-h-0">
                 <div className="p-3">
                   {sections.length === 0 ? (
                     <div className="rounded-xl border border-dashed p-8 text-center">
@@ -357,10 +355,21 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
                     />
                   )}
                 </div>
-              </ScrollArea>
+              </div>
             </motion.aside>
           )}
         </AnimatePresence>
+
+        {/* ─── Collapsed left panel — expand button ─────────────────────────── */}
+        {!leftOpen && (
+          <button
+            onClick={() => setLeftOpen(true)}
+            className="flex items-center gap-1 border-r bg-muted/30 px-2 py-3 text-muted-foreground hover:text-foreground hover:bg-muted transition shrink-0"
+            title="Show outline (Ctrl+\)"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </button>
+        )}
 
         {/* ─── Center: Lesson Editor ─────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto scroll-thin min-w-0 bg-grid">
@@ -397,7 +406,7 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
               transition={{ duration: 0.2 }}
               className="hidden md:flex flex-col border-l bg-muted/30 overflow-hidden shrink-0"
             >
-              <RightPanel lesson={activeLesson} course={course} onUpdateLesson={(patch) => {
+              <RightPanel lesson={activeLesson} course={course} onClose={() => setRightOpen(false)} onUpdateLesson={(patch) => {
                 if (!activeLesson) return
                 setSections(sections.map(s => ({
                   ...s,
@@ -407,6 +416,17 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
             </motion.aside>
           )}
         </AnimatePresence>
+
+        {/* ─── Collapsed right panel — expand button ────────────────────────── */}
+        {!rightOpen && (
+          <button
+            onClick={() => setRightOpen(true)}
+            className="hidden md:flex items-center gap-1 border-l bg-muted/30 px-2 py-3 text-muted-foreground hover:text-foreground hover:bg-muted transition shrink-0"
+            title="Show inspector (Ctrl+Shift+\)"
+          >
+            <PanelRightOpen className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* ═══ Keyboard shortcuts dialog ═════════════════════════════════════════ */}
@@ -439,7 +459,7 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
             <DialogTitle className="flex items-center gap-2"><Eye className="h-5 w-5 text-primary" /> Student Preview</DialogTitle>
             <DialogDescription>This is how students will see your course.</DialogDescription>
           </DialogHeader>
-          <ScrollArea className="flex-1 scroll-thin">
+          <div className="flex-1 overflow-y-auto scroll-thin">
             <div className="space-y-4">
               <div>
                 <h2 className="text-2xl font-bold">{title}</h2>
@@ -464,7 +484,7 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
                 </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
           <DialogFooter>
             <Button onClick={() => setShowPreview(false)}>Close Preview</Button>
           </DialogFooter>
@@ -761,6 +781,24 @@ function LessonRow({
 
 // ─── Lesson Editor (center) ──────────────────────────────────────────────────
 function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: Partial<Lesson>) => void }) {
+  const [showBlockPicker, setShowBlockPicker] = useState(false)
+
+  const BLOCK_TYPES = [
+    { label: 'Heading', icon: Type, template: '\n\n## New Heading\n\n' },
+    { label: 'Text', icon: FileText, template: '\n\nWrite your text here...\n\n' },
+    { label: 'Video', icon: Video, template: '\n\n[▶ Video placeholder — paste your video URL here]\n\n' },
+    { label: 'Quiz', icon: FileQuestion, template: '\n\n### Quiz\n**Question:** Type your question here?\n- [ ] Option A\n- [ ] Option B\n- [x] Option C (correct)\n\n' },
+    { label: 'Callout', icon: AlertCircle, template: '\n\n> 💡 **Tip:** Add an important callout here.\n\n' },
+    { label: 'Divider', icon: BookOpen, template: '\n\n---\n\n' },
+  ]
+
+  const addBlock = (template: string) => {
+    const newContent = (lesson.content || '') + template
+    onUpdate({ content: newContent })
+    setShowBlockPicker(false)
+    toast.success('Block added')
+  }
+
   return (
     <div className="mx-auto w-full max-w-[1000px] px-6 py-8 md:px-10 md:py-10">
       {/* Lesson title */}
@@ -798,21 +836,55 @@ Complete the following exercise to practice what you've learned."
         />
       </div>
 
-      {/* Add block placeholder */}
-      <div className="mt-6 flex items-center justify-center">
-        <button className="flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:scale-105 hover:border-primary hover:text-primary hover:shadow-md">
+      {/* Add block button + picker */}
+      <div className="mt-6 flex flex-col items-center gap-3">
+        <button
+          onClick={() => setShowBlockPicker(!showBlockPicker)}
+          className="flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:scale-105 hover:border-primary hover:text-primary hover:shadow-md"
+        >
           <Plus className="h-4 w-4" /> Add block
         </button>
+
+        <AnimatePresence>
+          {showBlockPicker && (
+            <motion.div
+              initial={{ opacity: 0, y: -8, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -8, height: 0 }}
+              transition={{ duration: 0.15 }}
+              className="overflow-hidden"
+            >
+              <div className="grid grid-cols-3 gap-2 rounded-xl border bg-card p-3 shadow-lg">
+                {BLOCK_TYPES.map((bt) => {
+                  const Icon = bt.icon
+                  return (
+                    <button
+                      key={bt.label}
+                      onClick={() => addBlock(bt.template)}
+                      className="group flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center hover:border-primary/40 hover:bg-primary/5 transition"
+                    >
+                      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted group-hover:bg-primary/10 transition">
+                        <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                      </div>
+                      <span className="text-xs font-medium">{bt.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
 }
 
 // ─── Right Panel (settings) ──────────────────────────────────────────────────
-function RightPanel({ lesson, course, onUpdateLesson }: {
+function RightPanel({ lesson, course, onUpdateLesson, onClose }: {
   lesson: Lesson | null
   course: CourseFull
   onUpdateLesson: (patch: Partial<Lesson>) => void
+  onClose: () => void
 }) {
   const [tab, setTab] = useState<'lesson' | 'course'>('lesson')
 
@@ -833,8 +905,11 @@ function RightPanel({ lesson, course, onUpdateLesson }: {
             Course
           </button>
         </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} title="Collapse (Ctrl+Shift+\)">
+          <PanelRightClose className="h-4 w-4" />
+        </Button>
       </div>
-      <ScrollArea className="flex-1 scroll-thin min-h-0">
+      <div className="flex-1 overflow-y-auto scroll-thin min-h-0">
         <div className="p-4 space-y-5">
           {tab === 'lesson' && lesson ? (
             <>
@@ -902,7 +977,7 @@ function RightPanel({ lesson, course, onUpdateLesson }: {
             </>
           )}
         </div>
-      </ScrollArea>
+      </div>
     </>
   )
 }
