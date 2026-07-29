@@ -12,12 +12,11 @@ import { toast } from 'sonner'
 import type { ModuleId } from '@/lib/nav'
 
 export function Topbar() {
-  const { setCommandOpen, theme, toggleTheme, activeModule, setActiveModule } = useAppStore()
+  const { setCommandOpen, theme, toggleTheme, activeModule, setActiveModule, triggerCreateDialog } = useAppStore()
   const current = ALL_NAV_ITEMS.find((i) => i.id === activeModule)
 
   const create = (label: string, target: ModuleId) => {
-    setActiveModule(target)
-    toast.success(`${label} dialog ready`, { description: `Switched to ${label.split(' ')[0]} — use the ${label.includes('Course') ? 'New Course' : label.includes('Product') ? 'Add Product' : 'Create'} button.` })
+    triggerCreateDialog(target)
   }
 
   return (

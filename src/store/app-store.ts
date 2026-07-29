@@ -12,6 +12,10 @@ interface AppState {
   theme: 'light' | 'dark'
   setTheme: (t: 'light' | 'dark') => void
   toggleTheme: () => void
+  /** When set, the target module should auto-open its create dialog */
+  createDialogFor: ModuleId | null
+  triggerCreateDialog: (m: ModuleId) => void
+  clearCreateDialog: () => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -26,6 +30,9 @@ export const useAppStore = create<AppState>()(
       theme: 'dark',
       setTheme: (t) => set({ theme: t }),
       toggleTheme: () => set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+      createDialogFor: null,
+      triggerCreateDialog: (m) => set({ activeModule: m, createDialogFor: m }),
+      clearCreateDialog: () => set({ createDialogFor: null }),
     }),
     {
       name: 'creatoros-app',

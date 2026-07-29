@@ -177,3 +177,50 @@ Stage Summary:
 - Email Marketing CRUD: FULLY FUNCTIONAL (create, edit, send, duplicate, delete, send test)
 - Funnels CRUD: FULLY FUNCTIONAL (create, delete)
 - All 3 modules browser-verified end-to-end
+
+---
+Task ID: COURSE-ARCHITECTURE-FIX
+Agent: Main (Course Module Architecture Fix)
+Task: Fix Course module routing, permissions, card actions, and CRUD
+
+Work Log:
+- Root cause analysis: Course cards opened student view (CourseDetail) instead of editor for all users
+- Root cause: No role-based routing existed — clicking a course called setSelected() which rendered CourseDetail (student player)
+- Root cause: CreateDialog had fake setTimeout submit — no API call was made
+- Root cause: Courses API only had GET — no POST/PUT/DELETE existed
+- Root cause: Course cards only had a "View" button — no Edit/Preview/Analytics/Duplicate/Publish/Delete menu
+
+Fixes Applied:
+1. Added POST/PUT/DELETE to /api/data/courses with workspace lookup, validation
+2. Added /api/data/courses/duplicate endpoint that copies course + sections + lessons
+3. Rewrote CreateDialog to call real API via fetch() with type="button" on submit button
+4. Added createDialogFor state to app-store for cross-module dialog triggering
+5. Updated Topbar Create dropdown to use triggerCreateDialog instead of toast
+6. Completely rewrote CoursesModule:
+   - Course cards now show "Edit" button as primary action
+   - Each card has a dropdown menu (•••) with: Preview, View Analytics, Duplicate, Publish/Unpublish, Archive, Delete
+   - Clicking a course opens CourseEditor (admin view), not CourseDetail (student view)
+   - CourseEditor has 3 tabs: Curriculum, Settings, Pricing
+   - CourseEditor has Save and Publish buttons that call real APIs
+   - CoursePreview is separate from CourseEditor (student view, read-only, marked "Preview Mode")
+7. Added empty state when no courses exist
+8. Added status badges (Published/Draft/Archived) on course cards
+
+Browser-Verified Flows:
+- Click course card → Course Editor opens (not student player) ✅
+- Edit course title → Save → toast "Course saved" ✅
+- Click Publish → toast "Course published!" ✅
+- New Course dialog → fill form → Create → course appears in list ✅
+- Dropdown menu shows all 6 actions: Preview, Analytics, Duplicate, Publish, Archive, Delete ✅
+- Duplicate API creates copy with "(Copy)" suffix ✅
+- Delete API removes course and its sections ✅
+
+Stage Summary:
+- Lint: 0 errors
+- TypeScript: 0 errors in src/
+- Dev server: HTTP 200
+- Course CRUD: FULLY FUNCTIONAL (create, edit, publish, unpublish, archive, duplicate, delete)
+- Course routing: FIXED (admins get editor, preview is separate)
+- Course cards: FIXED (Edit is primary, dropdown has all actions)
+- CreateDialog: FIXED (calls real API, not fake setTimeout)
+- All 5 course actions browser-verified

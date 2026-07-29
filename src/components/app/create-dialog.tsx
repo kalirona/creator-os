@@ -26,6 +26,8 @@ export interface CreateDialogConfig {
   fields: CreateField[]
   submitLabel?: string
   aiHint?: string
+  apiEndpoint?: string
+  entityName?: string
 }
 
 export function CreateDialog({
@@ -41,22 +43,50 @@ export function CreateDialog({
 
   const set = (name: string, val: string) => setValues((p) => ({ ...p, [name]: val }))
 
-  const submit = () => {
+  const submit = async () => {
     const missing = config.fields.filter((f) => f.required && !(values[f.name] || f.defaultValue || '').trim())
     if (missing.length) {
       toast.error(`Please fill in: ${missing.map((f) => f.label.toLowerCase()).join(', ')}`)
       return
     }
+
+    // Build payload from fields
+    const payload: Record<string, string> = {}
+    for (const f of config.fields) {
+      payload[f.name] = values[f.name] ?? f.defaultValue ?? ''
+    }
+
+    if (!config.apiEndpoint) {
+      toast.error('No API endpoint configured')
+      return
+    }
+
     setSaving(true)
-    setTimeout(() => {
-      setSaving(false)
-      const name = values[config.fields[0]?.name] || config.fields[0]?.defaultValue || 'Item'
-      toast.success(`${config.title.replace('New ', '').replace('Add ', '')} created!`, {
-        description: `"${name}" is now ${config.title.includes('Course') ? 'published' : 'live'} in your workspace.`,
+    try {
+      const res = await fetch(config.apiEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to create')
+      }
+
+      const entityName = config.entityName || config.title.replace('New ', '').replace('Add ', '')
+      const itemName = payload[config.fields[0]?.name] || 'Item'
+      toast.success(`${entityName} created!`, {
+        description: `"${itemName}" is now in your workspace.`,
       })
       setValues({})
       onOpenChange(false)
-    }, 700)
+    } catch (e) {
+      toast.error('Failed to create', {
+        description: e instanceof Error ? e.message : 'Unknown error',
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -78,13 +108,12 @@ export function CreateDialog({
             <span className="text-xs text-primary font-medium">Open AI →</span>
           </button>
         )}
-        <div className="space-y-3 py-1">
+        <div className="space-y-4 py-2">
           {config.fields.map((f) => (
-            <div key={f.name}>
-              <Label className="text-xs">{f.label}{f.required && <span className="text-destructive ml-0.5">*</span>}</Label>
+            <div key={f.name} className="space-y-1.5">
+              <Label className="text-sm font-medium">{f.label}{f.required && <span className="text-destructive ml-0.5">*</span>}</Label>
               {f.type === 'text' && (
                 <Input
-                  className="mt-1.5"
                   placeholder={f.placeholder}
                   value={values[f.name] ?? f.defaultValue ?? ''}
                   onChange={(e) => set(f.name, e.target.value)}
@@ -93,7 +122,6 @@ export function CreateDialog({
               {f.type === 'number' && (
                 <Input
                   type="number"
-                  className="mt-1.5"
                   placeholder={f.placeholder}
                   value={values[f.name] ?? f.defaultValue ?? ''}
                   onChange={(e) => set(f.name, e.target.value)}
@@ -101,7 +129,6 @@ export function CreateDialog({
               )}
               {f.type === 'textarea' && (
                 <Textarea
-                  className="mt-1.5"
                   rows={3}
                   placeholder={f.placeholder}
                   value={values[f.name] ?? f.defaultValue ?? ''}
@@ -110,7 +137,7 @@ export function CreateDialog({
               )}
               {f.type === 'select' && (
                 <Select value={values[f.name] ?? f.defaultValue} onValueChange={(v) => set(f.name, v)}>
-                  <SelectTrigger className="mt-1.5"><SelectValue placeholder={f.placeholder} /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={f.placeholder} /></SelectTrigger>
                   <SelectContent>
                     {f.options?.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                   </SelectContent>
@@ -119,9 +146,9 @@ export function CreateDialog({
             </div>
           ))}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={submit} disabled={saving}>
+        <DialogFooter className="gap-2">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button type="button" onClick={submit} disabled={saving}>
             {saving ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Saving...</> : config.submitLabel || 'Create'}
           </Button>
         </DialogFooter>
