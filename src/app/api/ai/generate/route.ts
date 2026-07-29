@@ -52,10 +52,10 @@ export async function POST(req: NextRequest) {
     const rawOutput = completion.choices[0]?.message?.content || ''
 
     const isStructured = tool.outputType !== 'MARKDOWN'
-    let structured = {}
+    let structured: Record<string, unknown> = {}
     if (isStructured) {
       const parsed = parseStructured(rawOutput)
-      structured = parsed.ok ? parsed.data : { _parseError: true, _raw: rawOutput.slice(0, 500) }
+      structured = parsed.ok ? parsed.data as Record<string, unknown> : { _parseError: true, _raw: rawOutput.slice(0, 500) }
     }
 
     const generation = await db.aiGeneration.create({

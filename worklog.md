@@ -149,3 +149,31 @@ Stage Summary:
 - 8 sub-tabs all working: Pages, Landing Pages, Funnels, Navigation, Blog, Domains, SEO, Site Settings
 - All data persists to database (Page, PageSection, Funnel, FunnelStep, BlogPost, SiteSetting)
 - Experience feels like Notion + Kajabi — fast, minimal clicks, built to sell
+
+---
+Task ID: PROD-HARDENING-3
+Agent: Main (Production Hardening Pass 3)
+Task: Fix Community, Email Marketing, Settings, Custom Domain after project reset
+
+Work Log:
+- Detected project had been partially reset (auth system, platform services, many API routes lost)
+- Fixed 3 TypeScript errors: ai-studio.tsx type mismatch, ai/generate/route.ts unknown type
+- Re-added Blog CRUD API (POST/PUT/DELETE) with workspace lookup, slug generation, validation
+- Re-added Funnels CRUD API (POST/PUT/DELETE) with workspace lookup
+- Fixed Email CRUD API (POST/PUT/DELETE) - removed auth dependency, added workspace lookup
+- Added slugify function to utils.ts (was missing after reset)
+- Added EmailCampaign model fields: previewText, body, audience, sentAt, scheduledAt, createdBy
+- Rewrote BlogPanel with full BlogEditor (title, slug, excerpt, content, category, tags, cover image, Save Draft + Publish)
+- Rewrote FunnelsPanel with create dialog + delete button
+- Rewrote EmailModule with CampaignBuilder dialog, Send Now, Duplicate, Send Test, Delete
+- Created _state-utils.tsx with ApiErrorBanner and ModuleEmptyState components
+- Browser verified: Blog publish flow, Email campaign save flow, Funnel create flow all work end-to-end
+
+Stage Summary:
+- Lint: 0 errors
+- TypeScript: 0 errors in src/
+- Dev server: HTTP 200
+- Blog CRUD: FULLY FUNCTIONAL (create, edit, publish, delete)
+- Email Marketing CRUD: FULLY FUNCTIONAL (create, edit, send, duplicate, delete, send test)
+- Funnels CRUD: FULLY FUNCTIONAL (create, delete)
+- All 3 modules browser-verified end-to-end

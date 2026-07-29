@@ -195,18 +195,28 @@ model Customer {
 }
 
 model EmailCampaign {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   workspaceId  String
   name         String
   subject      String
-  type         String   @default("BROADCAST") // BROADCAST|AUTOMATION|SEQUENCE
-  status       String   @default("DRAFT") // DRAFT|SCHEDULED|SENT
-  recipients   Int      @default(0)
-  openRate     Float    @default(0)
-  clickRate    Float    @default(0)
-  createdAt    DateTime @default(now())
+  previewText  String    @default("")
+  body         String    @default("")
+  type         String    @default("BROADCAST") // BROADCAST|AUTOMATION|SEQUENCE
+  status       String    @default("DRAFT") // DRAFT|SCHEDULED|SENT
+  audience     String    @default("ALL") // ALL|STUDENTS|CUSTOMERS|MEMBERS
+  recipients   Int       @default(0)
+  openRate     Float     @default(0)
+  clickRate    Float     @default(0)
+  sentAt       DateTime?
+  scheduledAt  DateTime?
+  createdBy     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
 }
 
 model Affiliate {

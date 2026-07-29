@@ -388,7 +388,7 @@ function download(content: string, filename: string, mime: string) {
 
 interface Action { label: string; icon: React.ComponentType<{ className?: string }>; onClick: () => void; variant?: 'default' | 'outline' | 'ghost'; disabled?: boolean }
 
-function getActionsForTool(slug: string, ctx: { exportFile: (f: string) => void; publishCourse: () => void; publishing: boolean; setActiveModule: (m: 'courses' | 'website' | 'email' | 'products') => void; onBack: () => void }): Action[] {
+function getActionsForTool(slug: string, ctx: { exportFile: (f: string) => void; publishCourse: () => void; publishing: boolean; setActiveModule: (m: any) => void; onBack: () => void }): Action[] {
   const base: Action[] = [
     { label: 'Copy', icon: Copy, onClick: () => ctx.exportFile('json'), variant: 'ghost' },
   ]

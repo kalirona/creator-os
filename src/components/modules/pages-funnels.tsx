@@ -530,9 +530,41 @@ function SectionFields({ type, content, set }: { type: string; content: Record<s
 
 // ===== Funnels panel =====
 function FunnelsPanel() {
-  const { data, loading } = useApi<{ funnels: { id: string; name: string; description: string; type: string; status: string; visits: number; conversions: number; revenue: number; steps: { id: string; name: string; type: string; position: number; isRequired: boolean; page: { id: string; title: string; slug: string } | null }[] }[]; stats: { total: number; live: number; totalVisits: number; totalRevenue: number } }>('/api/data/funnels')
+  const { data, loading, refetch } = useApi<{ funnels: { id: string; name: string; description: string; type: string; status: string; visits: number; conversions: number; revenue: number; steps: { id: string; name: string; type: string; position: number; isRequired: boolean; page: { id: string; title: string; slug: string } | null }[] }[]; stats: { total: number; live: number; totalVisits: number; totalRevenue: number } }>('/api/data/funnels')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newDesc, setNewDesc] = useState('')
+  const [creating, setCreating] = useState(false)
+
   if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
   const STEP_ICONS: Record<string, React.ComponentType<{ className?: string }>> = { LANDING: Rocket, CHECKOUT: ShoppingCart, UPSELL: TrendingUp, DOWNSELL: TrendingUp, THANK_YOU: Check, EMAIL: Mail, COMMUNITY_INVITE: Users, COURSE_ACCESS: FileText }
+
+  const createFunnel = async () => {
+    if (!newName.trim()) { toast.error('Funnel name is required'); return }
+    setCreating(true)
+    try {
+      const res = await fetch('/api/data/funnels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName.trim(), description: newDesc, type: 'SALES' }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed')
+      toast.success('Funnel created', { description: `"${newName}" is ready. Add steps to start building.` })
+      setCreateOpen(false); setNewName(''); setNewDesc('')
+      refetch()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setCreating(false) }
+  }
+
+  const deleteFunnel = async (id: string, name: string) => {
+    if (!confirm(`Delete "${name}"? This will remove all steps. This cannot be undone.`)) return
+    try {
+      const res = await fetch(`/api/data/funnels?id=${id}`, { method: 'DELETE' })
+      if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Failed') }
+      toast.success('Funnel deleted', { description: `"${name}" has been removed.` })
+      refetch()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') }
+  }
 
   return (
     <div className="space-y-4">
@@ -543,34 +575,53 @@ function FunnelsPanel() {
           { l: 'Total Visits', v: formatNumber(data.stats.totalVisits, true), i: Eye },
           { l: 'Revenue', v: `$${formatNumber(data.stats.totalRevenue, true)}`, i: DollarSign },
         ].map((s) => { const Icon = s.i; return (
-          <Card key={s.l}><CardContent className="p-4 flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div><div><p className="text-lg font-bold tabular-nums leading-none">{s.v}</p><p className="text-[11px] text-muted-foreground mt-1">{s.l}</p></div></CardContent></Card>
+          <Card key={s.l}><CardContent className="p-4 flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div><div><p className="text-lg font-bold tabular-nums leading-none">{s.v}</p><p className="text-xs text-muted-foreground mt-1">{s.l}</p></div></CardContent></Card>
         )})}
       </div>
 
-      <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Your Funnels</h3><Button size="sm" onClick={() => toast.success('Funnel builder opened', { description: 'Create a connected sequence of pages.' })}><Plus className="h-4 w-4 mr-1.5" />New Funnel</Button></div>
+      <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Your Funnels</h3><Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1.5" />New Funnel</Button></div>
 
-      {data.funnels.map((f, fi) => (
+      {data.funnels.length === 0 ? (
+        <Card><CardContent className="p-12 text-center"><Megaphone className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" /><p className="text-sm font-medium">No funnels yet</p><p className="text-xs text-muted-foreground mt-1">Create your first funnel to connect pages into a sales sequence.</p><Button size="sm" className="mt-3" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1.5" />New Funnel</Button></CardContent></Card>
+      ) : data.funnels.map((f) => (
         <Card key={f.id}>
           <CardHeader className="pb-3 flex-row items-center justify-between">
-            <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600"><Megaphone className="h-5 w-5" /></div><div><p className="font-semibold text-sm">{f.name}</p><p className="text-xs text-muted-foreground">{f.description}</p></div></div>
-            <div className="flex items-center gap-2"><Badge variant="secondary" className={cn('text-[10px]', f.status === 'LIVE' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600')}>{f.status}</Badge><span className="text-xs text-muted-foreground">{formatNumber(f.visits)} visits · {f.conversions} conv. · ${formatNumber(f.revenue)}</span></div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-1 overflow-x-auto scroll-thin pb-2">
-              {f.steps.map((s, i) => { const Icon = STEP_ICONS[s.type] || FileText; return (
-                <div key={s.id} className="flex items-center shrink-0">
-                  <div className={cn('flex flex-col items-center gap-1 rounded-lg border p-2.5 w-28 text-center', s.page ? 'bg-card' : 'bg-muted/30 border-dashed')}>
-                    <div className={cn('flex h-7 w-7 items-center justify-center rounded-full', s.isRequired ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}><Icon className="h-3.5 w-3.5" /></div>
-                    <p className="text-[10px] font-medium leading-tight">{s.name}</p>
-                    <Badge variant="secondary" className="text-[8px] h-3.5 px-1">{s.type}</Badge>
-                  </div>
-                  {i < f.steps.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mx-0.5" />}
-                </div>
-              )})}
+            <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600"><Megaphone className="h-5 w-5" /></div><div><p className="font-semibold text-sm">{f.name}</p><p className="text-xs text-muted-foreground">{f.description || 'No description'}</p></div></div>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className={cn('text-xs', f.status === 'LIVE' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600')}>{f.status}</Badge>
+              <span className="text-xs text-muted-foreground hidden sm:inline">{formatNumber(f.visits)} visits · {f.conversions} conv. · ${formatNumber(f.revenue)}</span>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-rose-500 hover:text-rose-600" onClick={() => deleteFunnel(f.id, f.name)}><Trash2 className="h-4 w-4" /></Button>
             </div>
-          </CardContent>
+          </CardHeader>
+          {f.steps.length > 0 && (
+            <CardContent>
+              <div className="flex items-center gap-1 overflow-x-auto scroll-thin pb-2">
+                {f.steps.map((s, i) => { const Icon = STEP_ICONS[s.type] || FileText; return (
+                  <div key={s.id} className="flex items-center shrink-0">
+                    <div className={cn('flex flex-col items-center gap-1 rounded-lg border p-2.5 w-28 text-center', s.page ? 'bg-card' : 'bg-muted/30 border-dashed')}>
+                      <div className={cn('flex h-7 w-7 items-center justify-center rounded-full', s.isRequired ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}><Icon className="h-3.5 w-3.5" /></div>
+                      <p className="text-xs font-medium leading-tight">{s.name}</p>
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1">{s.type}</Badge>
+                    </div>
+                    {i < f.steps.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mx-0.5" />}
+                  </div>
+                )})}
+              </div>
+            </CardContent>
+          )}
         </Card>
       ))}
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>New Funnel</DialogTitle><DialogDescription>Create a sales funnel to connect pages into a conversion sequence.</DialogDescription></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5"><Label className="text-sm font-medium">Funnel name <span className="text-destructive">*</span></Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Course Launch Funnel" /></div>
+            <div className="space-y-1.5"><Label className="text-sm font-medium">Description</Label><Textarea rows={2} value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="What does this funnel sell?" /></div>
+          </div>
+          <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button onClick={createFunnel} disabled={creating}>{creating ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Creating...</> : 'Create funnel'}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -593,26 +644,144 @@ function NavigationPanel() {
 
 // ===== Blog panel =====
 function BlogPanel() {
-  const { data, loading } = useApi<{ posts: { id: string; title: string; slug: string; excerpt: string; category: string; tags: string[]; author: string; status: string; visits: number; publishedAt: string; createdAt: string }[]; stats: { total: number; published: number; drafts: number; totalVisits: number } }>('/api/data/blog')
+  const { data, loading, refetch } = useApi<{ posts: BlogPost[]; stats: { total: number; published: number; drafts: number; totalVisits: number } }>('/api/data/blog')
+  const [editing, setEditing] = useState<BlogPost | 'new' | null>(null)
+
   if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+
+  if (editing) {
+    return <BlogEditor post={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refetch() }} />
+  }
+
   const STATUS_CLS: Record<string, string> = { PUBLISHED: 'bg-emerald-500/10 text-emerald-600', DRAFT: 'bg-amber-500/10 text-amber-600' }
+
+  const deletePost = async (id: string, title: string) => {
+    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return
+    try {
+      const res = await fetch(`/api/data/blog?id=${id}`, { method: 'DELETE' })
+      if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Failed') }
+      toast.success('Post deleted', { description: `"${title}" has been removed.` })
+      refetch()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') }
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[{ l: 'Posts', v: data.stats.total, i: BookOpen }, { l: 'Published', v: data.stats.published, i: Check }, { l: 'Drafts', v: data.stats.drafts, i: Pencil }, { l: 'Visits', v: formatNumber(data.stats.totalVisits, true), i: Eye }].map((s) => { const Icon = s.i; return (
-          <Card key={s.l}><CardContent className="p-4 flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div><div><p className="text-lg font-bold tabular-nums leading-none">{s.v}</p><p className="text-[11px] text-muted-foreground mt-1">{s.l}</p></div></CardContent></Card>
+          <Card key={s.l}><CardContent className="p-4 flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div><div><p className="text-lg font-bold tabular-nums leading-none">{s.v}</p><p className="text-xs text-muted-foreground mt-1">{s.l}</p></div></CardContent></Card>
         )})}
       </div>
-      <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Blog Posts</h3><Button size="sm" onClick={() => toast.success('New post editor opened')}><Plus className="h-4 w-4 mr-1.5" />New Post</Button></div>
-      <Card><CardContent className="p-0">{data.posts.map((p, i) => (
-        <motion.div key={p.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="flex items-center gap-3 p-3 border-b last:border-0 hover:bg-muted/50 transition cursor-pointer" onClick={() => toast.info(`Editing "${p.title}"`)}>
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600"><BookOpen className="h-5 w-5" /></div>
-          <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{p.title}</p><p className="text-xs text-muted-foreground truncate">{p.excerpt}</p><div className="flex items-center gap-2 mt-0.5"><Badge variant="secondary" className="text-[9px]">{p.category}</Badge>{p.tags.slice(0, 2).map((t) => <Badge key={t} variant="secondary" className="text-[9px] bg-muted">#{t}</Badge>)}</div></div>
+      <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Blog Posts</h3><Button size="sm" onClick={() => setEditing('new')}><Plus className="h-4 w-4 mr-1.5" />New Post</Button></div>
+      <Card><CardContent className="p-0">{data.posts.length === 0 ? (
+        <div className="p-12 text-center"><BookOpen className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" /><p className="text-sm font-medium">No blog posts yet</p><p className="text-xs text-muted-foreground mt-1">Create your first post to start publishing.</p><Button size="sm" className="mt-3" onClick={() => setEditing('new')}><Plus className="h-4 w-4 mr-1.5" />New Post</Button></div>
+      ) : data.posts.map((p, i) => (
+        <motion.div key={p.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="flex items-center gap-3 p-3 border-b last:border-0 hover:bg-muted/50 transition">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 shrink-0"><BookOpen className="h-5 w-5" /></div>
+          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setEditing(p)}><p className="text-sm font-medium truncate">{p.title}</p><p className="text-xs text-muted-foreground truncate">{p.excerpt}</p><div className="flex items-center gap-2 mt-0.5"><Badge variant="secondary" className="text-xs">{p.category}</Badge>{p.tags.slice(0, 2).map((t) => <Badge key={t} variant="secondary" className="text-xs bg-muted">#{t}</Badge>)}</div></div>
           <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground"><div className="text-right"><p className="font-medium text-foreground tabular-nums">{formatNumber(p.visits, true)}</p><p>visits</p></div></div>
-          <Badge variant="secondary" className={cn('text-[10px]', STATUS_CLS[p.status])}>{p.status}</Badge>
-          <span className="text-xs text-muted-foreground">{timeAgo(p.publishedAt || p.createdAt)}</span>
+          <Badge variant="secondary" className={cn('text-xs', STATUS_CLS[p.status])}>{p.status}</Badge>
+          <span className="text-xs text-muted-foreground hidden sm:inline">{timeAgo(p.publishedAt || p.createdAt)}</span>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setEditing(p)}><Pencil className="h-3.5 w-3.5" /></Button>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-rose-500 hover:text-rose-600" onClick={() => deletePost(p.id, p.title)}><Trash2 className="h-3.5 w-3.5" /></Button>
         </motion.div>
       ))}</CardContent></Card>
+    </div>
+  )
+}
+
+interface BlogPost {
+  id: string; title: string; slug: string; excerpt: string; content: string;
+  category: string; tags: string[]; author: string; status: string;
+  coverUrl: string | null; visits: number; publishedAt: string | null; createdAt: string;
+}
+
+function BlogEditor({ post, onClose, onSaved }: { post: BlogPost | null; onClose: () => void; onSaved: () => void }) {
+  const [title, setTitle] = useState(post?.title || '')
+  const [slug, setSlug] = useState(post?.slug || '')
+  const [excerpt, setExcerpt] = useState(post?.excerpt || '')
+  const [content, setContent] = useState(post?.content || '')
+  const [category, setCategory] = useState(post?.category || 'General')
+  const [tags, setTags] = useState((post?.tags || []).join(', '))
+  const [status, setStatus] = useState(post?.status || 'DRAFT')
+  const [coverUrl, setCoverUrl] = useState(post?.coverUrl || '')
+  const [saving, setSaving] = useState(false)
+
+  const save = async (publishNow?: boolean) => {
+    if (!title.trim()) { toast.error('Title is required'); return }
+    setSaving(true)
+    const finalStatus = publishNow ? 'PUBLISHED' : status
+    try {
+      const body = {
+        ...(post ? { id: post.id } : {}),
+        title: title.trim(),
+        slug: slug.trim() || undefined,
+        excerpt, content, category,
+        tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+        status: finalStatus,
+        coverUrl: coverUrl || null,
+      }
+      const res = await fetch('/api/data/blog', {
+        method: post ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to save')
+      toast.success(post ? 'Post updated' : 'Post created', { description: `"${title}" has been ${finalStatus === 'PUBLISHED' ? 'published' : 'saved as draft'}.` })
+      onSaved()
+    } catch (e) {
+      toast.error('Failed to save', { description: e instanceof Error ? e.message : 'Unknown error' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="sm" onClick={onClose}><ArrowLeft className="h-4 w-4 mr-1.5" />Back to blog</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => save(false)} disabled={saving}><Save className="h-4 w-4 mr-1.5" />{saving ? 'Saving...' : 'Save Draft'}</Button>
+          <Button size="sm" onClick={() => save(true)} disabled={saving}><Send className="h-4 w-4 mr-1.5" />Publish</Button>
+        </div>
+      </div>
+      <Card><CardContent className="p-6 space-y-4">
+        <div className="space-y-1.5">
+          <Label className="text-sm font-medium">Title <span className="text-destructive">*</span></Label>
+          <Input className="text-lg" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter post title..." />
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Slug</Label>
+            <Input className="font-mono text-sm" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="auto-generated-from-title" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Category</Label>
+            <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Marketing" />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm font-medium">Excerpt</Label>
+          <Textarea rows={2} value={excerpt} onChange={(e) => setExcerpt(e.target.value)} placeholder="Short summary for SEO and previews..." />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm font-medium">Content (Markdown)</Label>
+          <Textarea rows={12} className="font-mono text-sm" value={content} onChange={(e) => setContent(e.target.value)} placeholder="# Heading
+
+Write your post content here. Markdown is supported." />
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Tags (comma-separated)</Label>
+            <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="marketing, tutorial, ai" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Featured Image URL</Label>
+            <Input value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} placeholder="https://..." />
+          </div>
+        </div>
+      </CardContent></Card>
     </div>
   )
 }
