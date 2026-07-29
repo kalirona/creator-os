@@ -19,6 +19,7 @@ import { PagesFunnelsModule } from '@/components/modules/pages-funnels'
 import { SupportModule } from '@/components/modules/support'
 import { SettingsModule } from '@/components/modules/settings'
 import { AdminModule } from '@/components/modules/admin'
+import { CourseBuilder } from '@/components/course-builder/builder'
 import type { ModuleId } from '@/lib/nav'
 
 const MODULES: Record<ModuleId, React.ComponentType> = {
@@ -41,7 +42,13 @@ const MODULES: Record<ModuleId, React.ComponentType> = {
 
 export default function Home() {
   const activeModule = useAppStore((s) => s.activeModule)
+  const builderCourseId = useAppStore((s) => s.builderCourseId)
   const Active = MODULES[activeModule] ?? DashboardModule
+
+  // ── Full-screen Course Builder (overrides entire dashboard layout) ──
+  if (builderCourseId) {
+    return <CourseBuilder courseId={builderCourseId} />
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

@@ -224,3 +224,48 @@ Stage Summary:
 - Course cards: FIXED (Edit is primary, dropdown has all actions)
 - CreateDialog: FIXED (calls real API, not fake setTimeout)
 - All 5 course actions browser-verified
+
+---
+Task ID: PHASE-11-COURSE-BUILDER
+Agent: Main (Course Builder UX Restoration)
+Task: Restore full-screen Course Builder with 3-panel layout
+
+Work Log:
+- Root cause: Course editor was rendered inline inside the dashboard layout (with sidebar/topbar visible)
+- Added builderCourseId, openBuilder, closeBuilder to app-store for full-screen builder state
+- Updated page.tsx to render CourseBuilder full-screen when builderCourseId is set (no sidebar/topbar/footer)
+- Created src/components/course-builder/builder.tsx — full-screen 3-panel layout:
+  * Top Toolbar (64px): Back, title, status badge, save indicator, toggle sidebars, shortcuts, Save, Preview, Publish
+  * Left Sidebar (320px): Course Outline with sections, lessons, drag-drop, collapse, add/rename/delete/duplicate
+  * Center: Lesson Editor with title input, content textarea, add block button
+  * Right Panel (320px): Lesson settings (title, duration, type, preview toggle) + Course settings
+- Updated CoursesModule to use openBuilder(courseId) instead of inline CourseEditor
+- Updated CreateDialog with onCreated callback — auto-opens builder after course creation
+- Added autosave with 1.5s debounce, save indicator (Saving.../Saved/Error)
+- Added unsaved changes warning (beforeunload event)
+- Added keyboard shortcuts: Ctrl+S (save), Ctrl+\ (toggle outline), Ctrl+Shift+\ (toggle inspector), Ctrl+/ (shortcuts help)
+- Added drag-and-drop section reordering via @dnd-kit
+- Added section collapse/expand with animations
+- Added lesson double-click rename
+- Added preview overlay (student view in dialog)
+- Added publish/unpublish toggle
+
+Browser-Verified:
+- Click course → full-screen builder opens (no dashboard sidebar/topbar) ✅
+- Add Section → section appears in outline ✅
+- Add Lesson → lesson appears, center editor opens ✅
+- Toggle outline (Ctrl+\) → sidebar collapses/expands ✅
+- Save → toast "All changes saved" ✅
+- Publish/Unpublish → toast "Course published/unpublished" ✅
+- Preview → dialog opens showing student view ✅
+- Back to Courses → returns to courses list ✅
+- Zero console errors ✅
+- Zero page errors ✅
+
+Stage Summary:
+- Lint: 0 errors
+- TypeScript: 0 errors in src/
+- Dev server: HTTP 200
+- Course Builder: FULLY FUNCTIONAL full-screen 3-panel layout
+- No dashboard sidebar/topbar when builder is open
+- Autosave, keyboard shortcuts, drag-drop, preview all working

@@ -16,6 +16,14 @@ interface AppState {
   createDialogFor: ModuleId | null
   triggerCreateDialog: (m: ModuleId) => void
   clearCreateDialog: () => void
+  /** When set, the full-screen Course Builder is rendered (overrides dashboard layout) */
+  builderCourseId: string | null
+  openBuilder: (courseId: string) => void
+  closeBuilder: () => void
+  /** When set, the full-screen Course Player (student preview) is rendered */
+  previewCourseId: string | null
+  openPreview: (courseId: string) => void
+  closePreview: () => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -33,6 +41,12 @@ export const useAppStore = create<AppState>()(
       createDialogFor: null,
       triggerCreateDialog: (m) => set({ activeModule: m, createDialogFor: m }),
       clearCreateDialog: () => set({ createDialogFor: null }),
+      builderCourseId: null,
+      openBuilder: (courseId) => set({ builderCourseId: courseId }),
+      closeBuilder: () => set({ builderCourseId: null }),
+      previewCourseId: null,
+      openPreview: (courseId) => set({ previewCourseId: courseId }),
+      closePreview: () => set({ previewCourseId: null }),
     }),
     {
       name: 'creatoros-app',

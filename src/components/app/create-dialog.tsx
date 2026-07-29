@@ -28,6 +28,8 @@ export interface CreateDialogConfig {
   aiHint?: string
   apiEndpoint?: string
   entityName?: string
+  /** Called with the API response data after successful creation */
+  onCreated?: (data: { id?: string; [key: string]: unknown }) => void
 }
 
 export function CreateDialog({
@@ -80,6 +82,10 @@ export function CreateDialog({
       })
       setValues({})
       onOpenChange(false)
+      // Call onCreated callback if provided (e.g., to open the builder)
+      if (config.onCreated && data) {
+        config.onCreated(data.course || data.product || data)
+      }
     } catch (e) {
       toast.error('Failed to create', {
         description: e instanceof Error ? e.message : 'Unknown error',
