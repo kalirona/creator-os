@@ -19,6 +19,8 @@ import { PagesFunnelsModule } from '@/components/modules/pages-funnels'
 import { SupportModule } from '@/components/modules/support'
 import { SettingsModule } from '@/components/modules/settings'
 import { AdminModule } from '@/components/modules/admin'
+import { CertificatesModule } from '@/components/modules/certificates'
+import { MediaLibraryModule } from '@/components/modules/media-library'
 import { CourseBuilder } from '@/components/course-builder/builder'
 import type { ModuleId } from '@/lib/nav'
 
@@ -38,6 +40,8 @@ const MODULES: Record<ModuleId, React.ComponentType> = {
   'support': SupportModule,
   'settings': SettingsModule,
   'admin': AdminModule,
+  'certificates': CertificatesModule,
+  'media-library': MediaLibraryModule,
 }
 
 export default function Home() {

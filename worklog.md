@@ -371,3 +371,49 @@ Stage Summary:
 - Dev server: HTTP 200
 - 10 block types (4 new: YouTube, Video URL, Image, Document, Code)
 - Course tab fully controlled with pricing, access, and status
+
+---
+Task ID: PHASE-11.2-STORE-PRODUCTS-ARCHITECTURE
+Agent: Main (Store & Digital Products UX Architecture)
+Task: Separate Digital Products (BUILD) from Store (SELL), restructure sidebar
+
+Work Log:
+- Updated nav.ts: renamed "Membership" to "Memberships", added "Certificates" and "Media Library" to Create & Sell group
+- Added ModuleId types: 'certificates' and 'media-library'
+- Added POST/PUT/DELETE to /api/data/products with validation and workspace lookup
+- Created /api/data/orders GET endpoint with stats (total, revenue, refunds, pending)
+- Created /api/data/customers GET endpoint with stats (total, active, totalLTV, avgLTV)
+- Created CertificatesModule (3 template cards with issue counts, preview, download)
+- Created MediaLibraryModule (stats grid + file grid with images/videos/documents)
+- Updated page.tsx to include new modules
+- Completely rewrote ProductsModule:
+  * Stats strip (Total Products, Total Sales, Revenue, Avg Rating)
+  * Filter tabs (All, Digital, Bundle, Membership, Course)
+  * Product cards with type/status badges, price, sales, rating, dropdown menu
+  * Dropdown actions: Edit, Preview, View Sales, Duplicate, Archive, Delete
+  * Product Editor with 5 tabs: General, Media, Downloads, Pricing, SEO
+  * Save + Publish buttons with real API calls
+- Completely rewrote StoreModule with 6 tabs:
+  * Overview: KPIs (Revenue, Orders, Refunds, Pending) + Recent Orders + Best Sellers
+  * Catalog: Product list with Feature/Hide/Reorder dropdown
+  * Orders: Professional table (Order#, Customer, Product, Amount, Status, Date) with search/filter
+  * Customers: Stats + customer list with LTV, orders, status, search
+  * Coupons: Coupon cards with code, discount, uses, expiry, status
+  * Reports: Revenue by Product with progress bars
+
+Browser-Verified:
+- Sidebar shows: Courses, Digital Products, Store, Memberships, Certificates, Media Library ✅
+- Digital Products: product cards with Edit buttons, dropdown menu ✅
+- Product Editor: 5 tabs (General, Media, Downloads, Pricing, SEO) ✅
+- Store: 6 tabs (Overview, Catalog, Orders, Customers, Coupons, Reports) ✅
+- Certificates: 3 template cards ✅
+- Media Library: stats + file grid ✅
+- Zero console errors ✅
+- Zero page errors ✅
+
+Stage Summary:
+- Lint: 0 errors
+- TypeScript: 0 errors
+- Dev server: HTTP 200
+- Clear separation: Digital Products = BUILD, Store = SELL
+- No duplicate functionality between modules

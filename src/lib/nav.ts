@@ -1,13 +1,14 @@
 import {
   LayoutDashboard, GraduationCap, Users, ShoppingBag, Package,
   Mail, UserCircle, Link2, BarChart3, Sparkles, LifeBuoy, Settings,
-  CreditCard, Globe, ShieldCheck, type LucideIcon,
+  CreditCard, Globe, ShieldCheck, Award, FolderOpen, type LucideIcon,
 } from 'lucide-react'
 
 export type ModuleId =
   | 'dashboard' | 'courses' | 'community' | 'store' | 'products'
   | 'membership' | 'email' | 'crm' | 'affiliates' | 'analytics'
   | 'ai-studio' | 'pages-funnels' | 'support' | 'settings' | 'admin'
+  | 'certificates' | 'media-library'
 
 export interface NavItem {
   id: ModuleId
@@ -31,9 +32,11 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: 'Create & Sell',
     items: [
       { id: 'courses', label: 'Courses', icon: GraduationCap, description: 'Build and sell online courses' },
-      { id: 'products', label: 'Digital Products', icon: Package, description: 'Sell templates, downloads, and bundles' },
-      { id: 'store', label: 'Store', icon: ShoppingBag, description: 'Checkout, coupons, refunds, invoices' },
-      { id: 'membership', label: 'Membership', icon: CreditCard, description: 'Recurring revenue plans and tiers' },
+      { id: 'products', label: 'Digital Products', icon: Package, description: 'Build and manage digital products, templates, downloads' },
+      { id: 'store', label: 'Store', icon: ShoppingBag, description: 'Storefront, orders, customers, coupons, checkout' },
+      { id: 'membership', label: 'Memberships', icon: CreditCard, description: 'Recurring revenue plans and tiers' },
+      { id: 'certificates', label: 'Certificates', icon: Award, description: 'Course completion certificates' },
+      { id: 'media-library', label: 'Media Library', icon: FolderOpen, description: 'Images, videos, files, and assets' },
       { id: 'pages-funnels', label: 'Pages & Funnels', icon: Globe, description: 'Pages, landing pages, funnels, blog, SEO' },
     ],
   },
