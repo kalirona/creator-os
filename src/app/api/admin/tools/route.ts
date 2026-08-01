@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { createRequestContext } from '@/lib/context'
+
 export const dynamic = 'force-dynamic'
+
+async function requireAdmin() {
+  const ctx = await createRequestContext()
+  if (ctx.user.role !== 'ADMIN' && ctx.user.role !== 'OWNER') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  return null
+}
 
 // GET all tools (including hidden) for admin
 export async function GET() {
+  const authError = await requireAdmin()
+  if (authError) return authError
+
   const tools = await db.aiTool.findMany({ orderBy: [{ category: 'asc' }, { name: 'asc' }] })
   const generations = await db.aiGeneration.count()
   const totalCreditsUsed = await db.creditTransaction.aggregate({ where: { amount: { lt: 0 } }, _sum: { amount: true } })
@@ -21,6 +34,9 @@ export async function GET() {
 
 // PUT — update a tool (Tool Builder: prompts, costs, temp, visibility, etc.)
 export async function PUT(req: NextRequest) {
+  const authError = await requireAdmin()
+  if (authError) return authError
+
   try {
     const body = await req.json()
     const { id, ...updates } = body
