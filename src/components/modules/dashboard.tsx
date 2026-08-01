@@ -26,6 +26,7 @@ import { AppCard } from '@/components/ui-enterprise/AppCard'
 import { ActivityTimeline } from '@/components/ui-enterprise/ActivityTimeline'
 import { StatGrid } from '@/components/ui-enterprise/StatGrid'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { ErrorState } from '@/components/ui-enterprise/ErrorState'
 
 interface DashData {
   workspace: { name: string; plan: string; slug: string }
@@ -46,10 +47,11 @@ interface DashData {
 const PIE_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)']
 
 export function DashboardModule() {
-  const { data, loading } = useApi<DashData>('/api/data/dashboard')
+  const { data, loading, error, refetch } = useApi<DashData>('/api/data/dashboard')
   const setActiveModule = useAppStore((s) => s.setActiveModule)
 
-  if (loading || !data) return <LoadingState size="lg" text="Loading dashboard..." />
+  if (loading) return <LoadingState size="lg" text="Loading dashboard..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load dashboard.'} action={{ label: 'Retry', onClick: refetch }} />
 
   return (
     <div className="space-y-6 p-6">

@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { MetricCard } from '@/components/ui-enterprise/MetricCard'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { ErrorState } from '@/components/ui-enterprise/ErrorState'
 import { SectionHeader } from '@/components/ui-enterprise/SectionHeader'
 import { StatGrid } from '@/components/ui-enterprise/StatGrid'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
@@ -23,9 +24,10 @@ interface Data {
 const PIE_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--muted-foreground)']
 
 export function AnalyticsModule() {
-  const { data, loading } = useApi<Data>('/api/data/analytics')
+  const { data, loading, error, refetch } = useApi<Data>('/api/data/analytics')
 
-  if (loading || !data) return <LoadingState size="lg" text="Loading analytics..." />
+  if (loading) return <LoadingState size="lg" text="Loading analytics..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load analytics.'} action={{ label: 'Retry', onClick: refetch }} />
 
   const kpis = [
     { label: 'Revenue (YTD)', value: formatCurrency(data.stats.revenue, { compact: true }), delta: '+12.4%', icon: DollarSign },

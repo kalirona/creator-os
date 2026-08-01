@@ -27,6 +27,7 @@ import { useAppStore } from '@/store/app-store'
 import { EditorLayout } from '@/components/editor/EditorLayout'
 import { EmptyState } from '@/components/ui-enterprise/EmptyState'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { ErrorState } from '@/components/ui-enterprise/ErrorState'
 import { AppCard } from '@/components/ui-enterprise/AppCard'
 import type { EditorStatus } from '@/components/editor/EditorLayout'
 
@@ -81,7 +82,7 @@ interface PageRow { id: string; title: string; slug: string; type: string; statu
 
 function PagesList({ type, onEdit, onGenerate }: { type: string; onEdit: (p: { id: string; title: string; slug: string }) => void; onGenerate?: () => void }) {
   // Fetch all pages, filter client-side (PAGE = everything except LANDING; LANDING = only landing)
-  const { data: allData, loading, refetch } = useApi<{ pages: PageRow[]; stats: { total: number; published: number; drafts: number; totalVisits: number } }>(`/api/data/pages`)
+  const { data: allData, loading, error, refetch } = useApi<{ pages: PageRow[]; stats: { total: number; published: number; drafts: number; totalVisits: number } }>(`/api/data/pages`)
   const isLanding = type === 'LANDING'
   const data = allData ? {
     ...allData,
@@ -109,7 +110,8 @@ function PagesList({ type, onEdit, onGenerate }: { type: string; onEdit: (p: { i
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') }
   }
 
-  if (loading || !data) return <LoadingState size="lg" text="Loading pages..." />
+  if (loading) return <LoadingState size="lg" text="Loading pages..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load pages.'} action={{ label: 'Retry', onClick: refetch }} />
 
   const STATUS_CLS: Record<string, string> = { PUBLISHED: 'bg-emerald-500/10 text-emerald-600', DRAFT: 'bg-amber-500/10 text-amber-600', SCHEDULED: 'bg-sky-500/10 text-sky-600' }
   return (
@@ -270,7 +272,7 @@ const SECTION_TYPES = [
 ]
 
 function PageEditor({ page, onBack }: { page: { id: string; title: string; slug: string }; onBack: () => void }) {
-  const { data, loading, refetch } = useApi<{ page: FullPage }>(`/api/data/page-sections?pageId=${page.id}`)
+  const { data, loading, error, refetch } = useApi<{ page: FullPage }>(`/api/data/page-sections?pageId=${page.id}`)
   const [selectedSection, setSelectedSection] = useState<Section | null>(null)
   const [showAddPanel, setShowAddPanel] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
@@ -301,7 +303,8 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
 
-  if (loading || !pageData) return <LoadingState size="lg" text="Loading page editor..." />
+  if (loading) return <LoadingState size="lg" text="Loading page editor..." />
+  if (error || !pageData) return <ErrorState description={error || 'Failed to load page.'} action={{ label: 'Retry', onClick: refetch }} />
 
   const editorStatus: EditorStatus = pageData.status === 'PUBLISHED' ? 'published' : 'draft'
 
@@ -698,13 +701,14 @@ function SectionFields({ type, content, set }: { type: string; content: Record<s
 
 // ===== Funnels panel =====
 function FunnelsPanel() {
-  const { data, loading, refetch } = useApi<{ funnels: { id: string; name: string; description: string; type: string; status: string; visits: number; conversions: number; revenue: number; steps: { id: string; name: string; type: string; position: number; isRequired: boolean; page: { id: string; title: string; slug: string } | null }[] }[]; stats: { total: number; live: number; totalVisits: number; totalRevenue: number } }>('/api/data/funnels')
+  const { data, loading, error, refetch } = useApi<{ funnels: { id: string; name: string; description: string; type: string; status: string; visits: number; conversions: number; revenue: number; steps: { id: string; name: string; type: string; position: number; isRequired: boolean; page: { id: string; title: string; slug: string } | null }[] }[]; stats: { total: number; live: number; totalVisits: number; totalRevenue: number } }>('/api/data/funnels')
   const [createOpen, setCreateOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [creating, setCreating] = useState(false)
 
-  if (loading || !data) return <LoadingState size="lg" text="Loading funnels..." />
+  if (loading) return <LoadingState size="lg" text="Loading funnels..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load funnels.'} action={{ label: 'Retry', onClick: refetch }} />
   const STEP_ICONS: Record<string, React.ComponentType<{ className?: string }>> = { LANDING: Rocket, CHECKOUT: ShoppingCart, UPSELL: TrendingUp, DOWNSELL: TrendingUp, THANK_YOU: Check, EMAIL: Mail, COMMUNITY_INVITE: Users, COURSE_ACCESS: FileText }
 
   const createFunnel = async () => {
@@ -812,10 +816,11 @@ function NavigationPanel() {
 
 // ===== Blog panel =====
 function BlogPanel() {
-  const { data, loading, refetch } = useApi<{ posts: BlogPost[]; stats: { total: number; published: number; drafts: number; totalVisits: number } }>('/api/data/blog')
+  const { data, loading, error, refetch } = useApi<{ posts: BlogPost[]; stats: { total: number; published: number; drafts: number; totalVisits: number } }>('/api/data/blog')
   const [editing, setEditing] = useState<BlogPost | 'new' | null>(null)
 
-  if (loading || !data) return <LoadingState size="lg" text="Loading blog..." />
+  if (loading) return <LoadingState size="lg" text="Loading blog..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load blog.'} action={{ label: 'Retry', onClick: refetch }} />
 
   if (editing) {
     return <BlogEditor post={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refetch() }} />
@@ -998,10 +1003,11 @@ function SeoPanel() {
 
 // ===== Site Settings panel =====
 function SiteSettingsPanel() {
-  const { data, loading, refetch } = useApi<{ settings: { id: string; key: string; value: unknown; category: string }[] }>('/api/data/site-settings')
+  const { data, loading, error, refetch } = useApi<{ settings: { id: string; key: string; value: unknown; category: string }[] }>('/api/data/site-settings')
   const [edits, setEdits] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState<string | null>(null)
-  if (loading || !data) return <LoadingState size="lg" text="Loading settings..." />
+  if (loading) return <LoadingState size="lg" text="Loading settings..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load site settings.'} action={{ label: 'Retry', onClick: refetch }} />
 
   const byCat = (cat: string) => data.settings.filter((s) => s.category === cat)
   const getVal = (k: string) => edits[k] !== undefined ? edits[k] : data.settings.find((s) => s.key === k)?.value

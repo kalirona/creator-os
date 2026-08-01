@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { ErrorState } from '@/components/ui-enterprise/ErrorState'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -32,7 +33,7 @@ const CAT_COLORS: Record<string, string> = {
 }
 
 export function CommunityModule() {
-  const { data: posts, loading, refetch } = useApi<Post[]>('/api/data/community')
+  const { data: posts, loading, error, refetch } = useApi<Post[]>('/api/data/community')
   const [activeCat, setActiveCat] = useState('All')
   const [liked, setLiked] = useState<Set<string>>(new Set())
   const [saved, setSaved] = useState<Set<string>>(new Set())
@@ -165,6 +166,8 @@ export function CommunityModule() {
 
         {loading ? (
           <LoadingState size="lg" text="Loading posts..." />
+        ) : error ? (
+          <ErrorState description={error} action={{ label: 'Retry', onClick: refetch }} />
         ) : (
           filtered.map((p, i) => {
             const isLiked = liked.has(p.id)

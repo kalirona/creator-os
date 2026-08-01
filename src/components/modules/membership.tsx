@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { MetricCard } from '@/components/ui-enterprise/MetricCard'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { ErrorState } from '@/components/ui-enterprise/ErrorState'
 
 interface Data {
   stats: { totalMembers: number; mrr: number; lifetime: number; arr: number; plans: number }
@@ -24,8 +25,9 @@ const PLAN_COLORS: Record<string, string> = {
 }
 
 export function MembershipModule() {
-  const { data, loading } = useApi<Data>('/api/data/membership')
-  if (loading || !data) return <LoadingState size="lg" text="Loading membership data..." />
+  const { data, loading, error, refetch } = useApi<Data>('/api/data/membership')
+  if (loading) return <LoadingState size="lg" text="Loading membership data..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load membership data.'} action={{ label: 'Retry', onClick: refetch }} />
 
   const kpis = [
     { label: 'Total Members', value: formatNumber(data.stats.totalMembers, true), icon: Users, delta: '+342' },

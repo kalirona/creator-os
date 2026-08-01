@@ -62,14 +62,16 @@ export function StoreModule() {
 
 // ─── Overview Tab ────────────────────────────────────────────────────────────
 function OverviewTab() {
-  const { data: ordersData, loading: ordersLoading } = useApi<{ orders: Order[]; stats: { total: number; revenue: number; refunds: number; pending: number } }>('/api/data/orders')
-  const { data: products } = useApi<Product[]>('/api/data/products')
+  const { data: ordersData, loading: ordersLoading, error: ordersError, refetch: refetchOrders } = useApi<{ orders: Order[]; stats: { total: number; revenue: number; refunds: number; pending: number } }>('/api/data/orders')
+  const { data: products, error: productsError, refetch: refetchProducts } = useApi<Product[]>('/api/data/products')
 
   if (ordersLoading) return <LoadingState size="lg" text="Loading store overview..." />
+  if (ordersError || !ordersData) return <ErrorState description={ordersError || 'Failed to load store overview.'} action={{ label: 'Retry', onClick: refetchOrders }} />
+  if (productsError || !products) return <ErrorState description={productsError || 'Failed to load products.'} action={{ label: 'Retry', onClick: refetchProducts }} />
 
-  const orders = ordersData?.orders || []
-  const stats = ordersData?.stats || { total: 0, revenue: 0, refunds: 0, pending: 0 }
-  const topProducts = (products || []).sort((a, b) => b.salesCount - a.salesCount).slice(0, 5)
+  const orders = ordersData.orders || []
+  const stats = ordersData.stats || { total: 0, revenue: 0, refunds: 0, pending: 0 }
+  const topProducts = products.sort((a, b) => b.salesCount - a.salesCount).slice(0, 5)
 
   const kpis = [
     { label: 'Revenue', value: formatCurrency(stats.revenue, { compact: true }), icon: DollarSign, delta: '+12.4%', up: true },
@@ -144,11 +146,11 @@ function OverviewTab() {
 
 // ─── Catalog Tab ─────────────────────────────────────────────────────────────
 function CatalogTab() {
-  const { data: products, loading } = useApi<Product[]>('/api/data/products')
+  const { data: products, loading, error, refetch } = useApi<Product[]>('/api/data/products')
   const [query, setQuery] = useState('')
 
   if (loading) return <LoadingState size="lg" text="Loading catalog..." />
-  if (!products) return <ErrorState />
+  if (error || !products) return <ErrorState description={error || 'Failed to load catalog.'} action={{ label: 'Retry', onClick: refetch }} />
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()))
 
@@ -203,13 +205,14 @@ function CatalogTab() {
 
 // ─── Orders Tab ──────────────────────────────────────────────────────────────
 function OrdersTab() {
-  const { data, loading } = useApi<{ orders: Order[]; stats: { total: number; revenue: number; refunds: number; pending: number } }>('/api/data/orders')
+  const { data, loading, error, refetch } = useApi<{ orders: Order[]; stats: { total: number; revenue: number; refunds: number; pending: number } }>('/api/data/orders')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('All')
 
   if (loading) return <LoadingState size="lg" text="Loading orders..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load orders.'} action={{ label: 'Retry', onClick: refetch }} />
 
-  const orders = data?.orders || []
+  const orders = data.orders || []
   const filtered = orders.filter((o) =>
     (filter === 'All' || o.status === filter) &&
     (o.customerName.toLowerCase().includes(query.toLowerCase()) || o.customerEmail.toLowerCase().includes(query.toLowerCase()) || o.id.toLowerCase().includes(query.toLowerCase()))
@@ -257,13 +260,14 @@ function OrdersTab() {
 
 // ─── Customers Tab ───────────────────────────────────────────────────────────
 function CustomersTab() {
-  const { data, loading } = useApi<{ customers: Customer[]; stats: { total: number; active: number; totalLTV: number; avgLTV: number } }>('/api/data/customers')
+  const { data, loading, error, refetch } = useApi<{ customers: Customer[]; stats: { total: number; active: number; totalLTV: number; avgLTV: number } }>('/api/data/customers')
   const [query, setQuery] = useState('')
 
   if (loading) return <LoadingState size="lg" text="Loading customers..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load customers.'} action={{ label: 'Retry', onClick: refetch }} />
 
-  const customers = data?.customers || []
-  const stats = data?.stats || { total: 0, active: 0, totalLTV: 0, avgLTV: 0 }
+  const customers = data.customers || []
+  const stats = data.stats || { total: 0, active: 0, totalLTV: 0, avgLTV: 0 }
   const filtered = customers.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()) || c.email.toLowerCase().includes(query.toLowerCase()))
 
   return (

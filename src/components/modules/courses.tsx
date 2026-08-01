@@ -25,6 +25,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { StatGrid } from '@/components/ui-enterprise/StatGrid'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { ErrorState } from '@/components/ui-enterprise/ErrorState'
 import { EmptyState } from '@/components/ui-enterprise/EmptyState'
 import { SearchToolbar } from '@/components/ui-enterprise/SearchToolbar'
 
@@ -58,7 +59,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
 }
 
 export function CoursesModule() {
-  const { data: courses, loading, refetch } = useApi<Course[]>('/api/data/courses')
+  const { data: courses, loading, error, refetch } = useApi<Course[]>('/api/data/courses')
   const [query, setQuery] = useState('')
   const [previewingCourse, setPreviewingCourse] = useState<Course | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
@@ -170,6 +171,8 @@ export function CoursesModule() {
 
        {loading ? (
         <LoadingState size="lg" text="Loading courses..." />
+      ) : error ? (
+        <ErrorState description={error} action={{ label: 'Retry', onClick: refetch }} />
       ) : filtered.length === 0 ? (
         <EmptyState
           title={query ? 'No courses match your search' : 'No courses yet'}

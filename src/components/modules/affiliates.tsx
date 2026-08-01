@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
 import { MetricCard } from '@/components/ui-enterprise/MetricCard'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { ErrorState } from '@/components/ui-enterprise/ErrorState'
 
 interface Data {
   stats: { totalEarnings: number; totalClicks: number; totalConversions: number; affiliates: number; avgConversionRate: number; pendingPayouts: number }
@@ -19,10 +20,11 @@ interface Data {
 }
 
 export function AffiliatesModule() {
-  const { data, loading } = useApi<Data>('/api/data/affiliates')
+  const { data, loading, error, refetch } = useApi<Data>('/api/data/affiliates')
   const [copied, setCopied] = useState<string | null>(null)
 
-  if (loading || !data) return <LoadingState size="lg" text="Loading affiliate data..." />
+  if (loading) return <LoadingState size="lg" text="Loading affiliate data..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load affiliate data.'} action={{ label: 'Retry', onClick: refetch }} />
 
   const copy = (code: string) => {
     navigator.clipboard.writeText(`https://creatoros.io/r/${code}`)

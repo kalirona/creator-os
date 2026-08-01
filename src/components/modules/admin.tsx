@@ -19,6 +19,7 @@ import { useApi, formatNumber } from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
 import { StatGrid } from '@/components/ui-enterprise/StatGrid'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { ErrorState } from '@/components/ui-enterprise/ErrorState'
 
 interface Tool {
   id: string; slug: string; name: string; description: string; icon: string; category: string;
@@ -73,7 +74,7 @@ export function AdminModule() {
 
 // ===== Tool Builder — edit prompts, costs, temp, visibility (no code) =====
 function ToolBuilder() {
-  const { data, loading, refetch } = useApi<{ tools: Tool[]; stats: ToolStats }>('/api/admin/tools')
+  const { data, loading, error, refetch } = useApi<{ tools: Tool[]; stats: ToolStats }>('/api/admin/tools')
   const [editing, setEditing] = useState<Tool | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -90,7 +91,8 @@ function ToolBuilder() {
     finally { setSaving(false) }
   }
 
-  if (loading || !data) return <LoadingState size="lg" text="Loading tools..." />
+  if (loading) return <LoadingState size="lg" text="Loading tools..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load tools.'} action={{ label: 'Retry', onClick: refetch }} />
 
   const stats = data.stats
   const grouped = data.tools.reduce<Record<string, Tool[]>>((acc, t) => { (acc[t.category] ||= []).push(t); return acc }, {})
@@ -175,10 +177,11 @@ function ToolBuilder() {
 
 // ===== AI Providers =====
 function ProvidersPanel() {
-  const { data, loading, refetch } = useApi<{ providers: ({id: string; name: string; slug: string; apiKey: string; baseUrl: string; isActive: boolean; priority: number; models: {id: string; name: string; displayName: string; isDefault: boolean; isActive: boolean; costMultiplier: number}[]})[] }>('/api/admin/providers')
+  const { data, loading, error, refetch } = useApi<{ providers: ({id: string; name: string; slug: string; apiKey: string; baseUrl: string; isActive: boolean; priority: number; models: {id: string; name: string; displayName: string; isDefault: boolean; isActive: boolean; costMultiplier: number}[]})[] }>('/api/admin/providers')
   const [showKey, setShowKey] = useState<Record<string, boolean>>({})
 
-  if (loading || !data) return <LoadingState size="lg" text="Loading providers..." />
+  if (loading) return <LoadingState size="lg" text="Loading providers..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load providers.'} action={{ label: 'Retry', onClick: refetch }} />
 
   return (
     <div className="space-y-4">
@@ -265,8 +268,9 @@ function RoutingPanel() {
 
 // ===== Feature Flags =====
 function FlagsPanel() {
-  const { data, loading, refetch } = useApi<{ flags: {id: string; key: string; name: string; description: string; enabled: boolean}[] }>('/api/admin/flags')
-  if (loading || !data) return <LoadingState size="lg" text="Loading feature flags..." />
+  const { data, loading, error, refetch } = useApi<{ flags: {id: string; key: string; name: string; description: string; enabled: boolean}[] }>('/api/admin/flags')
+  if (loading) return <LoadingState size="lg" text="Loading feature flags..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load feature flags.'} action={{ label: 'Retry', onClick: refetch }} />
   return (
     <div className="space-y-2">
       {data.flags.map((f) => (
@@ -287,8 +291,9 @@ function FlagsPanel() {
 
 // ===== Generations log =====
 function GenerationsPanel() {
-  const { data, loading } = useApi<{ generations: {id: string; toolSlug: string; title: string; status: string; creditsUsed: number; createdAt: string}[] }>('/api/admin/generations')
-  if (loading || !data) return <LoadingState size="lg" text="Loading generations..." />
+  const { data, loading, error, refetch } = useApi<{ generations: {id: string; toolSlug: string; title: string; status: string; creditsUsed: number; createdAt: string}[] }>('/api/admin/generations')
+  if (loading) return <LoadingState size="lg" text="Loading generations..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load generations.'} action={{ label: 'Retry', onClick: refetch }} />
   return (
     <Card><CardContent className="p-0">
       <div className="max-h-[600px] overflow-y-auto scroll-thin">
@@ -310,11 +315,12 @@ function GenerationsPanel() {
 
 // ===== Global Settings =====
 function SettingsPanel() {
-  const { data, loading, refetch } = useApi<{ settings: {id: string; key: string; value: string; category: string}[] }>('/api/admin/settings')
+  const { data, loading, error, refetch } = useApi<{ settings: {id: string; key: string; value: string; category: string}[] }>('/api/admin/settings')
   const [editing, setEditing] = useState<Record<string, string>>({})
   const [savingKey, setSavingKey] = useState<string | null>(null)
 
-  if (loading || !data) return <LoadingState size="lg" text="Loading settings..." />
+  if (loading) return <LoadingState size="lg" text="Loading settings..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load settings.'} action={{ label: 'Retry', onClick: refetch }} />
 
   const grouped = data.settings.reduce<Record<string, typeof data.settings>>((acc, s) => { (acc[s.category] ||= []).push(s); return acc }, {})
   const CAT_ICON: Record<string, React.ComponentType<{ className?: string }>> = { general: Settings2, billing: DollarSign, ai: Cpu, storage: Database, email: Server }

@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { MetricCard } from '@/components/ui-enterprise/MetricCard'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { ErrorState } from '@/components/ui-enterprise/ErrorState'
 import { SearchToolbar } from '@/components/ui-enterprise/SearchToolbar'
 
 interface Data {
@@ -30,11 +31,12 @@ const STATUS_CLS: Record<string, string> = {
 }
 
 export function CrmModule() {
-  const { data, loading } = useApi<Data>('/api/data/crm')
+  const { data, loading, error, refetch } = useApi<Data>('/api/data/crm')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Data['customers'][0] | null>(null)
 
-  if (loading || !data) return <LoadingState size="lg" text="Loading CRM data..." />
+  if (loading) return <LoadingState size="lg" text="Loading CRM data..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load CRM data.'} action={{ label: 'Retry', onClick: refetch }} />
 
   const filteredCustomers = data.customers.filter((c) =>
     c.name.toLowerCase().includes(query.toLowerCase()) || c.email.toLowerCase().includes(query.toLowerCase()))
