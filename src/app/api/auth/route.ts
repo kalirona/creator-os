@@ -4,10 +4,11 @@ import { verifyPassword, hashPassword, validatePasswordStrength, createSession, 
 import { authConfig } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
-  const { action } = await request.json()
+  const body = await request.json()
+  const { action } = body
 
   if (action === 'login') {
-    const { email, password } = await request.json()
+    const { email, password } = body
 
     const user = await db.user.findUnique({
       where: { email },
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === 'register') {
-    const { name, email, password, workspaceName } = await request.json()
+    const { name, email, password, workspaceName } = body
 
     const { valid, errors } = validatePasswordStrength(password)
     if (!valid) {
