@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createRequestContext } from '@/lib/context'
 import { db } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
-// POST — publish an AI-generated course into the Courses module (real DB persistence)
 export async function POST(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const body = await req.json()
     const { generationId } = body as { generationId?: string }
     if (!generationId) return NextResponse.json({ error: 'generationId required' }, { status: 400 })
@@ -22,12 +23,9 @@ export async function POST(req: NextRequest) {
     let courseData: CourseData = {}
     try { courseData = JSON.parse(gen.structured) as CourseData } catch { return NextResponse.json({ error: 'Invalid structured data' }, { status: 400 }) }
 
-    const workspace = await db.workspace.findFirst()
-    if (!workspace) return NextResponse.json({ error: 'No workspace' }, { status: 400 })
-
     const course = await db.course.create({
       data: {
-        workspaceId: workspace.id,
+        workspaceId: ctx.workspace.id,
         title: courseData.title || gen.title,
         description: courseData.description || '',
         category: courseData.category || 'Marketing',
@@ -38,7 +36,6 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Create sections (modules) + lessons — sequential to guarantee order
     if (Array.isArray(courseData.modules)) {
       for (let mIdx = 0; mIdx < courseData.modules.length; mIdx++) {
         const mod = courseData.modules[mIdx]
@@ -66,6 +63,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, courseId: course.id, title: course.title })
   } catch (e) {
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 500 })
   }
 }

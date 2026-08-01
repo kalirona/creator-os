@@ -5,10 +5,13 @@ import { useApi, formatCurrency, formatNumber } from '@/hooks/use-api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { cn } from '@/lib/utils'
+import { MetricCard } from '@/components/ui-enterprise/MetricCard'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { SectionHeader } from '@/components/ui-enterprise/SectionHeader'
+import { StatGrid } from '@/components/ui-enterprise/StatGrid'
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 
 interface Data {
   stats: { revenue: number; mrr: number; arr: number; students: number; members: number; products: number; courses: number; customers: number; posts: number; pages: number; affiliates: number }
@@ -22,7 +25,7 @@ const PIE_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(-
 export function AnalyticsModule() {
   const { data, loading } = useApi<Data>('/api/data/analytics')
 
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (loading || !data) return <LoadingState size="lg" text="Loading analytics..." />
 
   const kpis = [
     { label: 'Revenue (YTD)', value: formatCurrency(data.stats.revenue, { compact: true }), delta: '+12.4%', icon: DollarSign },
@@ -38,22 +41,17 @@ export function AnalyticsModule() {
         <Button variant="outline" size="sm" onClick={() => toast.success('Report exporting', { description: 'Your analytics report (PDF) will download shortly.' })}><Download className="h-4 w-4 mr-1.5" /> Export report</Button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {kpis.map((k, i) => {
-          const Icon = k.icon
-          return (
-            <motion.div key={k.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-              <Card><CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
-                  <span className="text-[11px] text-emerald-500 font-semibold">{k.delta}</span>
-                </div>
-                <p className="text-2xl font-bold tabular-nums">{k.value}</p>
-                <p className="text-xs text-muted-foreground">{k.label}</p>
-              </CardContent></Card>
-            </motion.div>
-          )
-        })}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {kpis.map((k) => (
+          <MetricCard
+            key={k.label}
+            title={k.label}
+            value={k.value}
+            change={k.delta}
+            changeType="increase"
+            icon={<k.icon className="h-5 w-5" />}
+          />
+        ))}
       </div>
 
       {/* Revenue + Students trend */}
@@ -153,22 +151,15 @@ export function AnalyticsModule() {
       </div>
 
       {/* Audience overview */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Community Members', value: formatNumber(10112, true), icon: Users },
-          { label: 'Email Subscribers', value: formatNumber(12400, true), icon: Mail },
-          { label: 'Total Customers', value: formatNumber(data.stats.customers), icon: DollarSign },
-          { label: 'Affiliate Partners', value: String(data.stats.affiliates), icon: TrendingUp },
-        ].map((s) => {
-          const Icon = s.icon
-          return (
-            <Card key={s.label}><CardContent className="p-4 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-primary"><Icon className="h-5 w-5" /></div>
-              <div><p className="text-xl font-bold tabular-nums">{s.value}</p><p className="text-[11px] text-muted-foreground">{s.label}</p></div>
-            </CardContent></Card>
-          )
-        })}
-      </div>
+      <StatGrid
+        columns={4}
+        items={[
+          { label: 'Community Members', value: formatNumber(10112, true), icon: Users, color: 'primary' },
+          { label: 'Email Subscribers', value: formatNumber(12400, true), icon: Mail, color: 'success' },
+          { label: 'Total Customers', value: formatNumber(data.stats.customers), icon: DollarSign, color: 'warning' },
+          { label: 'Affiliate Partners', value: String(data.stats.affiliates), icon: TrendingUp, color: 'danger' },
+        ]}
+      />
     </div>
   )
 }

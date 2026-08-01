@@ -1,40 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { createRequestContext } from '@/lib/context'
+import { communityService } from '@/lib/services'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const posts = await db.communityPost.findMany({
-    orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
-    include: { user: true, comments: { include: { user: true }, orderBy: { createdAt: 'asc' } } },
-  })
-  return NextResponse.json(posts.map((p) => ({
-    id: p.id, title: p.title, content: p.content, category: p.category,
-    likesCount: p.likesCount, commentsCount: p.commentsCount, isPinned: p.isPinned,
-    createdAt: p.createdAt,
-    author: { name: p.user.name, initials: p.user.name.split(' ').map((n) => n[0]).join('').slice(0, 2) },
-    comments: p.comments.map((c) => ({
-      id: c.id, content: c.content, createdAt: c.createdAt,
-      author: { name: c.user.name, initials: c.user.name.split(' ').map((n) => n[0]).join('').slice(0, 2) },
-    })),
-  })))
+  try {
+    const ctx = await createRequestContext()
+    const posts = await communityService.list(ctx)
+    return NextResponse.json(posts)
+  } catch (e) {
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
-  const { title, content, category } = body
-  if (!title || !content) return NextResponse.json({ error: 'Title and content required' }, { status: 400 })
-  const user = await db.user.findFirst({ orderBy: { createdAt: 'asc' } })
-  const workspace = await db.workspace.findFirst()
-  if (!user || !workspace) return NextResponse.json({ error: 'No user/workspace' }, { status: 400 })
-  const post = await db.communityPost.create({
-    data: { title, content, category: category || 'General', userId: user.id, workspaceId: workspace.id },
-    include: { user: true },
-  })
-  return NextResponse.json({
-    id: post.id, title: post.title, content: post.content, category: post.category,
-    likesCount: 0, commentsCount: 0, isPinned: false, createdAt: post.createdAt,
-    author: { name: post.user.name, initials: post.user.name.split(' ').map((n) => n[0]).join('').slice(0, 2) },
-    comments: [],
-  })
+  try {
+    const ctx = await createRequestContext()
+    const body = await req.json()
+    const result = await communityService.create(ctx, body)
+    return NextResponse.json(result)
+  } catch (e) {
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+    if (e instanceof Error) {
+      return NextResponse.json({ error: e.message }, { status: 400 })
+    }
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
+  }
 }

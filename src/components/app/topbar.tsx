@@ -1,29 +1,73 @@
 'use client'
-import { Search, Bell, Sun, Moon, Command, Plus, GraduationCap, Package, Users, Mail, FileText, Sparkles } from 'lucide-react'
+
+import {
+  Search,
+  Bell,
+  Sun,
+  Moon,
+  Command,
+  Plus,
+  GraduationCap,
+  Package,
+  Users,
+  Mail,
+  FileText,
+  Sparkles,
+  ChevronDown,
+  Globe,
+} from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { ALL_NAV_ITEMS } from '@/lib/nav'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuGroup,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuGroup,
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import type { ModuleId } from '@/lib/nav'
 
 export function Topbar() {
-  const { setCommandOpen, theme, toggleTheme, activeModule, setActiveModule, triggerCreateDialog } = useAppStore()
+  const {
+    setCommandOpen,
+    theme,
+    toggleTheme,
+    activeModule,
+    setActiveModule,
+    triggerCreateDialog,
+    favorites,
+    toggleFavorite,
+  } = useAppStore()
+
   const current = ALL_NAV_ITEMS.find((i) => i.id === activeModule)
 
   const create = (label: string, target: ModuleId) => {
     triggerCreateDialog(target)
   }
 
+  const isFavorite = favorites.includes(activeModule)
+
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/80 backdrop-blur-xl px-4 md:px-6">
       <div className="hidden md:block min-w-0">
-        <h1 className="text-sm font-semibold tracking-tight truncate">{current?.label}</h1>
-        <p className="text-[11px] text-muted-foreground truncate">{current?.description}</p>
+        <div className="flex items-center gap-2">
+          <h1 className="text-sm font-semibold tracking-tight truncate">
+            {current?.label || 'Dashboard'}
+          </h1>
+          {isFavorite && (
+            <Badge variant="secondary" className="h-4 px-1.5 text-[9px]">
+              Favorited
+            </Badge>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground truncate">
+          {current?.description || ''}
+        </p>
       </div>
 
       <div className="flex-1" />
@@ -43,7 +87,6 @@ export function Topbar() {
         <Search className="h-4 w-4" />
       </Button>
 
-      {/* Create dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button size="sm" className="hidden md:inline-flex h-9 shadow-sm">
@@ -67,13 +110,37 @@ export function Topbar() {
               <Mail className="h-4 w-4 mr-2" /> Email Campaign
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => create('New Page', 'pages-funnels')}>
-              <FileText className="h-4 w-4 mr-2" /> Landing Page
+              <Globe className="h-4 w-4 mr-2" /> Landing Page
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setActiveModule('ai-studio')}>
             <Sparkles className="h-4 w-4 mr-2 text-primary" /> Generate with AI
           </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="hidden md:inline-flex h-9">
+            <span className="text-xs font-semibold">Scale Plan</span>
+            <ChevronDown className="h-3 w-3 ml-1" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>Workspace</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem>Acme Inc.</DropdownMenuItem>
+            <DropdownMenuItem>Personal</DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem>
+            <Badge variant="secondary" className="text-xs">
+              Scale Plan
+            </Badge>
+          </DropdownMenuItem>
+          <DropdownMenuItem>Upgrade</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createRequestContext } from '@/lib/context'
 import { db } from '@/lib/db'
+
 export const dynamic = 'force-dynamic'
 
 const SECTION_DEFAULTS: Record<string, unknown> = {
@@ -19,50 +21,68 @@ const SECTION_DEFAULTS: Record<string, unknown> = {
   HEADING: { text: 'Section Heading', alignment: 'center' },
 }
 
-// GET sections for a page (with full page data)
 export async function GET(req: NextRequest) {
-  const pageId = req.nextUrl.searchParams.get('pageId')
-  if (!pageId) return NextResponse.json({ error: 'pageId required' }, { status: 400 })
-  const page = await db.page.findUnique({ where: { id: pageId }, include: { sections: { orderBy: { position: 'asc' } } } })
-  if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 })
-  return NextResponse.json({
-    page: { ...page, sections: page.sections.map((s) => ({ ...s, content: JSON.parse(s.content || '{}') })) },
-  })
+  try {
+    const ctx = await createRequestContext()
+    const pageId = req.nextUrl.searchParams.get('pageId')
+    if (!pageId) return NextResponse.json({ error: 'pageId required' }, { status: 400 })
+
+    const page = await db.page.findFirst({
+      where: { id: pageId, workspaceId: ctx.workspace.id },
+      include: { sections: { orderBy: { position: 'asc' } } },
+    })
+    if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 })
+
+    return NextResponse.json({
+      page: { ...page, sections: page.sections.map((s) => ({ ...s, content: JSON.parse(s.content || '{}') })) },
+    })
+  } catch (e) {
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
+  }
 }
 
-// POST — add a new section to a page
 export async function POST(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const body = await req.json()
     const { pageId, type, content, position } = body
     if (!pageId || !type) return NextResponse.json({ error: 'pageId and type required' }, { status: 400 })
+
+    const page = await db.page.findFirst({ where: { id: pageId, workspaceId: ctx.workspace.id } })
+    if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 })
+
     const count = await db.pageSection.count({ where: { pageId } })
     const section = await db.pageSection.create({
       data: { pageId, type, content: JSON.stringify(content || SECTION_DEFAULTS[type] || {}), position: position ?? count },
     })
     return NextResponse.json({ success: true, section: { ...section, content: JSON.parse(section.content || '{}') } })
   } catch (e) {
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 500 })
   }
 }
 
-// PUT — update section content, or move/duplicate/hide
 export async function PUT(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const body = await req.json()
     const { id, action, content, isHidden } = body
 
     if (action === 'duplicate') {
-      const orig = await db.pageSection.findUnique({ where: { id } })
+      const orig = await db.pageSection.findFirst({ where: { id, page: { workspaceId: ctx.workspace.id } } })
       if (!orig) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       const dup = await db.pageSection.create({ data: { pageId: orig.pageId, type: orig.type, content: orig.content, position: orig.position + 1 } })
-      // shift later sections up
       await db.pageSection.updateMany({ where: { pageId: orig.pageId, position: { gt: orig.position }, id: { not: dup.id } }, data: { position: { increment: 1 } } })
       return NextResponse.json({ success: true, section: { ...dup, content: JSON.parse(dup.content || '{}') } })
     }
 
     if (action === 'moveUp' || action === 'moveDown') {
-      const section = await db.pageSection.findUnique({ where: { id } })
+      const section = await db.pageSection.findFirst({ where: { id, page: { workspaceId: ctx.workspace.id } } })
       if (!section) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       const dir = action === 'moveUp' ? -1 : 1
       const newPos = section.position + dir
@@ -73,33 +93,40 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ success: true })
     }
 
-    // default: update content or hidden
     const data: Record<string, unknown> = {}
     if (content !== undefined) data.content = JSON.stringify(content)
     if (isHidden !== undefined) data.isHidden = isHidden
-    const section = await db.pageSection.update({ where: { id }, data })
-    return NextResponse.json({ success: true, section: { ...section, content: JSON.parse(section.content || '{}') } })
+    const section = await db.pageSection.findFirst({ where: { id, page: { workspaceId: ctx.workspace.id } } })
+    if (!section) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    const updated = await db.pageSection.update({ where: { id }, data })
+    return NextResponse.json({ success: true, section: { ...updated, content: JSON.parse(updated.content || '{}') } })
   } catch (e) {
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 500 })
   }
 }
 
-// DELETE a section
 export async function DELETE(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const id = req.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
-    const section = await db.pageSection.findUnique({ where: { id } })
+
+    const section = await db.pageSection.findFirst({ where: { id, page: { workspaceId: ctx.workspace.id } } })
+    if (!section) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
     await db.pageSection.delete({ where: { id } })
-    // reorder remaining sections
-    if (section) {
-      const remaining = await db.pageSection.findMany({ where: { pageId: section.pageId }, orderBy: { position: 'asc' } })
-      for (let i = 0; i < remaining.length; i++) {
-        await db.pageSection.update({ where: { id: remaining[i].id }, data: { position: i } })
-      }
+    const remaining = await db.pageSection.findMany({ where: { pageId: section.pageId }, orderBy: { position: 'asc' } })
+    for (let i = 0; i < remaining.length; i++) {
+      await db.pageSection.update({ where: { id: remaining[i].id }, data: { position: i } })
     }
     return NextResponse.json({ success: true })
   } catch (e) {
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 500 })
   }
 }

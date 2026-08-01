@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
+import { createRequestContext } from '@/lib/context'
 import { db } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-// Parse AI output into structured JSON. Strips markdown fences and extracts JSON.
 function parseStructured(raw: string): { ok: boolean; data: unknown } {
   let text = raw.trim()
   text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '')
@@ -22,6 +22,7 @@ function parseStructured(raw: string): { ok: boolean; data: unknown } {
 
 export async function POST(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const body = await req.json()
     const { toolSlug, input } = body as { toolSlug?: string; input?: string }
 
@@ -36,8 +37,7 @@ export async function POST(req: NextRequest) {
     const model = await db.aiModel.findFirst({ where: { isActive: true, isDefault: true }, include: { provider: true } })
     if (!model) return NextResponse.json({ error: 'No active AI model configured. Contact your admin.' }, { status: 503 })
 
-    const user = await db.user.findFirst({ orderBy: { createdAt: 'asc' } })
-    if (!user) return NextResponse.json({ error: 'No user found' }, { status: 400 })
+    const user = ctx.user
     if (user.credits < tool.creditCost) {
       return NextResponse.json({ error: `Insufficient credits. This tool requires ${tool.creditCost} credits. You have ${user.credits}.` }, { status: 402 })
     }
@@ -86,12 +86,14 @@ export async function POST(req: NextRequest) {
       remainingCredits: user.credits - tool.creditCost,
     })
   } catch (e) {
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     console.error('AI generate error:', e)
     return NextResponse.json({ error: e instanceof Error ? e.message : 'AI generation failed' }, { status: 500 })
   }
 }
 
-// GET — list all visible tools (DB-driven tool picker)
 export async function GET() {
   const tools = await db.aiTool.findMany({
     where: { isVisible: true },

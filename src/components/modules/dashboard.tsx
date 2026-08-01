@@ -1,6 +1,19 @@
 'use client'
 import { motion } from 'framer-motion'
-import { TrendingUp, TrendingDown, DollarSign, Users, GraduationCap, Star, ShoppingCart, Sparkles, ArrowUpRight, Activity, Zap } from 'lucide-react'
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Users,
+  GraduationCap,
+  Star,
+  ShoppingCart,
+  Sparkles,
+  ArrowUpRight,
+  Activity,
+  Zap,
+  Package,
+} from 'lucide-react'
 import { useApi, formatCurrency, formatNumber, timeAgo } from '@/hooks/use-api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -8,7 +21,11 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { useAppStore } from '@/store/app-store'
-import { Skeleton } from '@/components/ui/skeleton'
+import { MetricCard } from '@/components/ui-enterprise/MetricCard'
+import { AppCard } from '@/components/ui-enterprise/AppCard'
+import { ActivityTimeline } from '@/components/ui-enterprise/ActivityTimeline'
+import { StatGrid } from '@/components/ui-enterprise/StatGrid'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
 
 interface DashData {
   workspace: { name: string; plan: string; slug: string }
@@ -32,18 +49,10 @@ export function DashboardModule() {
   const { data, loading } = useApi<DashData>('/api/data/dashboard')
   const setActiveModule = useAppStore((s) => s.setActiveModule)
 
-  if (loading || !data) return <DashboardSkeleton />
-
-  const kpis = [
-    { label: 'Total Revenue', value: formatCurrency(data.stats.revenue), delta: '+12.4%', up: true, icon: DollarSign, accent: 'text-emerald-500' },
-    { label: 'MRR', value: formatCurrency(data.stats.mrr), delta: '+8.2%', up: true, icon: TrendingUp, accent: 'text-primary' },
-    { label: 'Active Members', value: formatNumber(data.stats.activeMembers, true), delta: '+5.1%', up: true, icon: Users, accent: 'text-blue-500' },
-    { label: 'Avg. Rating', value: `${data.stats.avgRating}★`, delta: '+0.2', up: true, icon: Star, accent: 'text-amber-500' },
-  ]
+  if (loading || !data) return <LoadingState size="lg" text="Loading dashboard..." />
 
   return (
-    <div className="space-y-6">
-      {/* Welcome banner */}
+    <div className="space-y-6 p-6">
       <motion.div
         initial={{ opacity: 0, scale: 0.99 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -61,7 +70,8 @@ export function DashboardModule() {
             </div>
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Welcome back, Alex 👋</h2>
             <p className="text-sm text-muted-foreground max-w-lg">
-              Your creator business is up <span className="font-semibold text-emerald-500">12.4%</span> this week. You have 3 new sales and 2 AI generations waiting.
+              Your creator business is up <span className="font-semibold text-emerald-500">12.4%</span> this week.
+              You have 3 new sales and 2 AI generations waiting.
             </p>
           </div>
           <div className="flex gap-2">
@@ -75,40 +85,38 @@ export function DashboardModule() {
         </div>
       </motion.div>
 
-      {/* KPI cards */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        {kpis.map((kpi, i) => {
-          const Icon = kpi.icon
-          return (
-            <motion.div
-              key={kpi.label}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-            >
-              <Card className="overflow-hidden hover:shadow-md transition-shadow">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-muted ${kpi.accent}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <span className={`flex items-center gap-0.5 text-xs font-semibold ${kpi.up ? 'text-emerald-500' : 'text-red-500'}`}>
-                      {kpi.up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                      {kpi.delta}
-                    </span>
-                  </div>
-                  <p className="mt-4 text-2xl font-bold tracking-tight tabular-nums">{kpi.value}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{kpi.label}</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )
-        })}
+        <MetricCard
+          title="Total Revenue"
+          value={formatCurrency(data.stats.revenue)}
+          change="+12.4%"
+          changeType="increase"
+          icon={<DollarSign className="h-5 w-5" />}
+        />
+        <MetricCard
+          title="MRR"
+          value={formatCurrency(data.stats.mrr)}
+          change="+8.2%"
+          changeType="increase"
+          icon={<TrendingUp className="h-5 w-5" />}
+        />
+        <MetricCard
+          title="Active Members"
+          value={formatNumber(data.stats.activeMembers, true)}
+          change="+5.1%"
+          changeType="increase"
+          icon={<Users className="h-5 w-5" />}
+        />
+        <MetricCard
+          title="Avg Rating"
+          value={`${data.stats.avgRating}★`}
+          change="+0.2"
+          changeType="increase"
+          icon={<Star className="h-5 w-5" />}
+        />
       </div>
 
-      {/* Charts row */}
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* Revenue chart */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
@@ -142,7 +150,6 @@ export function DashboardModule() {
           </CardContent>
         </Card>
 
-        {/* Sales by type donut */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Revenue Mix</CardTitle>
@@ -174,9 +181,7 @@ export function DashboardModule() {
         </Card>
       </div>
 
-      {/* Bottom row */}
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* Top products */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-base">Top Products</CardTitle>
@@ -197,7 +202,6 @@ export function DashboardModule() {
           </CardContent>
         </Card>
 
-        {/* Recent orders */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-base">Recent Sales</CardTitle>
@@ -209,7 +213,9 @@ export function DashboardModule() {
             {data.recentOrders.map((o) => (
               <div key={o.id} className="flex items-center gap-3 py-1.5">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback className="text-[10px] bg-muted">{o.customer.split(' ').map((n) => n[0]).join('').slice(0, 2)}</AvatarFallback>
+                  <AvatarFallback className="text-[10px] bg-muted">
+                    {o.customer.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate">{o.customer}</p>
@@ -225,45 +231,28 @@ export function DashboardModule() {
         </Card>
       </div>
 
-      {/* Quick actions grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { icon: GraduationCap, label: 'Create Course', desc: 'AI-assisted course builder', mod: 'courses' as const, color: 'text-primary' },
-          { icon: ShoppingCart, label: 'Add Product', desc: 'Sell digital downloads', mod: 'products' as const, color: 'text-chart-2' },
-          { icon: Users, label: 'Post in Community', desc: 'Engage your audience', mod: 'community' as const, color: 'text-chart-3' },
-          { icon: Sparkles, label: 'Generate Content', desc: 'AI Studio tools', mod: 'ai-studio' as const, color: 'text-chart-4' },
-        ].map((a) => {
-          const Icon = a.icon
-          return (
-            <button key={a.label} onClick={() => setActiveModule(a.mod)} className="group text-left">
-              <Card className="hover:border-primary/40 hover:shadow-md transition-all cursor-pointer h-full">
-                <CardContent className="p-5">
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-muted ${a.color} mb-3 group-hover:scale-110 transition-transform`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <p className="text-sm font-semibold">{a.label}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{a.desc}</p>
-                </CardContent>
-              </Card>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
+      <StatGrid
+        items={[
+          { label: 'Total Students', value: formatNumber(data.stats.totalStudents, true), icon: Users, color: 'primary' },
+          { label: 'Courses', value: data.stats.courses, icon: GraduationCap, color: 'success' },
+          { label: 'Products', value: data.stats.products, icon: Package, color: 'warning' },
+          { label: 'Customers', value: formatNumber(data.stats.customers, true), icon: Users, color: 'primary' },
+        ]}
+        columns={4}
+      />
 
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-6">
-      <Skeleton className="h-32 rounded-2xl" />
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
-      </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Skeleton className="lg:col-span-2 h-72 rounded-xl" />
-        <Skeleton className="h-72 rounded-xl" />
-      </div>
+      <AppCard variant="elevated" padding="md">
+        <h3 className="text-lg font-semibold mb-3">Recent Activity</h3>
+        <ActivityTimeline
+        items={[
+          { id: 1, title: 'New order from Marcus Lee', description: 'Premium course purchase', time: '2 min ago', status: 'success', icon: ShoppingCart },
+          { id: 2, title: 'Community post published', description: "New discussion: 'Tips for course creators'", time: '12 min ago', status: 'primary', icon: Users },
+          { id: 3, title: 'Course published', description: '"Advanced AI" is now live', time: '1 hour ago', status: 'success', icon: GraduationCap },
+          { id: 4, title: 'AI content generated', description: '5 sections generated for landing page', time: '3 hours ago', status: 'muted', icon: Sparkles },
+        ]}
+         className="text-sm"
+      />
+      </AppCard>
     </div>
   )
 }

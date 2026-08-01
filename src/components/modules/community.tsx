@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -164,7 +164,7 @@ export function CommunityModule() {
         </Dialog>
 
         {loading ? (
-          <div className="space-y-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}</div>
+          <LoadingState size="lg" text="Loading posts..." />
         ) : (
           filtered.map((p, i) => {
             const isLiked = liked.has(p.id)

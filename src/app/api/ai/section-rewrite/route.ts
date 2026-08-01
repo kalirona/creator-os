@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
+import { createRequestContext } from '@/lib/context'
 import { db } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
@@ -24,14 +25,14 @@ function parseJSON(raw: string): Record<string, unknown> | null {
 
 export async function POST(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const body = await req.json()
     const { action, content, sectionType } = body as { action?: string; content?: Record<string, unknown>; sectionType?: string }
     if (!action || !content) return NextResponse.json({ error: 'action and content required' }, { status: 400 })
     const instruction = ACTION_PROMPTS[action]
     if (!instruction) return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
 
-    const user = await db.user.findFirst({ orderBy: { createdAt: 'asc' } })
-    if (!user) return NextResponse.json({ error: 'No user' }, { status: 400 })
+    const user = ctx.user
     const cost = 2
     if (user.credits < cost) return NextResponse.json({ error: 'Insufficient credits' }, { status: 402 })
 
@@ -52,6 +53,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, content: newContent, creditsUsed: cost, remainingCredits: user.credits - cost })
   } catch (e) {
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     console.error('Section rewrite error:', e)
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 500 })
   }

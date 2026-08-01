@@ -1,13 +1,15 @@
 'use client'
 import { motion } from 'framer-motion'
-import { LifeBuoy, MessageCircle, BookOpen, Video, Send, Search, Clock, CheckCircle2, AlertCircle, Plus } from 'lucide-react'
+import { LifeBuoy, MessageCircle, BookOpen, Video, Send, Clock, CheckCircle2, AlertCircle, Plus } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { StatGrid } from '@/components/ui-enterprise/StatGrid'
+import { SectionHeader } from '@/components/ui-enterprise/SectionHeader'
+import { SearchToolbar } from '@/components/ui-enterprise/SearchToolbar'
 
 const TICKETS = [
   { id: 'T-1042', subject: 'Cannot download my purchase', customer: 'Emma Smith', status: 'Open', priority: 'High', time: '12m ago' },
@@ -29,32 +31,28 @@ const HELP_CATS = [
 export function SupportModule() {
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: 'Open Tickets', value: '7', icon: AlertCircle, color: 'text-rose-500' },
-          { label: 'Avg Response', value: '2.4h', icon: Clock, color: 'text-amber-500' },
-          { label: 'Resolved (7d)', value: '42', icon: CheckCircle2, color: 'text-emerald-500' },
-          { label: 'Satisfaction', value: '98%', icon: MessageCircle, color: 'text-primary' },
-        ].map((s) => {
-          const Icon = s.icon
-          return (
-            <Card key={s.label}><CardContent className="p-4 flex items-center gap-3">
-              <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg bg-muted', s.color)}><Icon className="h-4 w-4" /></div>
-              <div><p className="text-lg font-bold tabular-nums leading-none">{s.value}</p><p className="text-[11px] text-muted-foreground mt-1">{s.label}</p></div>
-            </CardContent></Card>
-          )
-        })}
-      </div>
+      <StatGrid
+        columns={4}
+        items={[
+          { label: 'Open Tickets', value: '7', icon: AlertCircle, color: 'danger' },
+          { label: 'Avg Response', value: '2.4h', icon: Clock, color: 'warning' },
+          { label: 'Resolved (7d)', value: '42', icon: CheckCircle2, color: 'success' },
+          { label: 'Satisfaction', value: '98%', icon: MessageCircle, color: 'primary' },
+        ]}
+      />
 
       <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
         {/* Tickets */}
-        <Card>
-          <CardHeader className="pb-3 flex-row items-center justify-between">
-            <CardTitle className="text-base">Support Tickets</CardTitle>
-            <Button size="sm" onClick={() => toast.success('New ticket form opened', { description: 'Describe your issue and we will respond within 2 hours.' })}><Plus className="h-4 w-4 mr-1.5" /> New Ticket</Button>
-          </CardHeader>
-          <CardContent className="space-y-1.5">
-            <div className="relative mb-2"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search tickets..." className="pl-9" /></div>
+         <Card>
+           <CardHeader className="pb-3 flex-row items-center justify-between">
+             <CardTitle className="text-base">Support Tickets</CardTitle>
+             <Button size="sm" onClick={() => toast.success('New ticket form opened', { description: 'Describe your issue and we will respond within 2 hours.' })}><Plus className="h-4 w-4 mr-1.5" /> New Ticket</Button>
+           </CardHeader>
+           <CardContent className="space-y-1.5">
+             <SearchToolbar
+               placeholder="Search tickets..."
+               className="mb-2"
+             />
             {TICKETS.map((t, i) => (
               <motion.div key={t.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
                 onClick={() => toast.info(`Opening ticket ${t.id}`, { description: t.subject })}

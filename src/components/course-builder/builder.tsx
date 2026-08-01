@@ -1,4 +1,5 @@
 'use client'
+
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -9,18 +10,18 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove, s
 import { CSS } from '@dnd-kit/utilities'
 import {
   ArrowLeft, Plus, GripVertical, ChevronDown, ChevronRight, MoreVertical, Pencil, Copy,
-  Trash2, Eye, Save, Rocket, Archive, Undo2, Redo2, PanelLeftClose, PanelLeftOpen,
-  PanelRightClose, PanelRightOpen, Loader2, CheckCircle2, AlertCircle, CircleDot,
+  Trash2, Eye, Save, Rocket, Archive, Undo2, Redo2,
+  Loader2, CheckCircle2, AlertCircle, CircleDot,
   BookOpen, FileText, Video, FileQuestion, Download, Type, FileEdit, Clock,
   Keyboard, X, Settings, Sparkles, Image as ImageIcon, Code, PlayCircle,
   DollarSign, Users, Lock, Globe, Link2,
+  PanelLeft, PanelRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
@@ -30,8 +31,11 @@ import {
 import { useAppStore } from '@/store/app-store'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { EditorLayout } from '@/components/editor/EditorLayout'
+import { EmptyState } from '@/components/ui-enterprise/EmptyState'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import type { EditorStatus } from '@/components/editor/EditorLayout'
 
-// ─── Types ──────────────────────────────────────────────────────────────────
 interface Lesson {
   id: string; title: string; type: string; duration: number; isPreview: boolean; content: string
 }
@@ -50,7 +54,6 @@ const LESSON_TYPE_ICONS: Record<string, React.ElementType> = {
   DOWNLOAD: Download, TEXT: Type,
 }
 
-// ─── Main CourseBuilder ─────────────────────────────────────────────────────
 export function CourseBuilder({ courseId }: { courseId: string }) {
   const closeBuilder = useAppStore((s) => s.closeBuilder)
   const [showPreview, setShowPreview] = useState(false)
@@ -61,17 +64,18 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
   const [saveState, setSaveState] = useState<SaveState>('idle')
-  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
-  // Local editing state (for autosave)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [sections, setSections] = useState<Section[]>([])
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // ─── Fetch course ──────────────────────────────────────────────────────────
+  const undoStack = useRef<any[]>([])
+  const redoStack = useRef<any[]>([])
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -86,6 +90,7 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
           setDescription(found.description)
           setSections(found.sections)
           setActiveLessonId(found.sections[0]?.lessons[0]?.id || null)
+          pushHistory(found)
         }
       })
       .catch(() => toast.error('Failed to load course'))
@@ -93,7 +98,32 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
     return () => { cancelled = true }
   }, [courseId])
 
-  // ─── Autosave ──────────────────────────────────────────────────────────────
+  const pushHistory = (state: any) => {
+    undoStack.current.push(state)
+    redoStack.current = []
+  }
+
+  const undo = () => {
+    if (undoStack.current.length < 2) return
+    const current = undoStack.current.pop()!
+    redoStack.current.push(current)
+    const prev = undoStack.current[undoStack.current.length - 1]
+    restoreState(prev)
+  }
+
+  const redo = () => {
+    if (redoStack.current.length === 0) return
+    const current = redoStack.current.pop()!
+    undoStack.current.push(current)
+    restoreState(current)
+  }
+
+  const restoreState = (state: any) => {
+    setTitle(state.title || '')
+    setDescription(state.description || '')
+    setSections(state.sections || [])
+  }
+
   const save = useCallback(async (showToast = false) => {
     if (!course) return
     setSaveState('saving')
@@ -107,7 +137,7 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
       })
       if (!res.ok) throw new Error('Save failed')
       setSaveState('saved')
-      setLastSavedAt(Date.now())
+      setLastSavedAt(new Date())
       setHasUnsavedChanges(false)
       if (showToast) toast.success('All changes saved')
     } catch {
@@ -116,7 +146,6 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
     }
   }, [course, title, description])
 
-  // Debounced autosave
   useEffect(() => {
     if (!course) return
     if (title === course.title && description === course.description) return
@@ -127,7 +156,6 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
   }, [title, description, course, save])
 
-  // ─── Unsaved changes warning ───────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) { e.preventDefault(); e.returnValue = '' }
@@ -136,34 +164,40 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
     return () => window.removeEventListener('beforeunload', handler)
   }, [hasUnsavedChanges])
 
-  // ─── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); save(true) }
       if ((e.ctrlKey || e.metaKey) && e.key === '\\') { e.preventDefault(); setLeftOpen(v => !v) }
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === '\\') { e.preventDefault(); setRightOpen(v => !v) }
       if ((e.ctrlKey || e.metaKey) && e.key === '/') { e.preventDefault(); setShortcutsOpen(true) }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo() }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo() }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [save])
 
-  // ─── Section CRUD ──────────────────────────────────────────────────────────
   const addSection = () => {
     const newSection: Section = {
       id: `sec-${Date.now()}`, title: `Section ${sections.length + 1}`, position: sections.length, lessons: []
     }
+    const newState = { title, description, sections: [...sections, newSection] }
     setSections([...sections, newSection])
+    pushHistory(newState)
     toast.success('Section added')
   }
 
   const renameSection = (id: string, newTitle: string) => {
-    setSections(sections.map(s => s.id === id ? { ...s, title: newTitle } : s))
+    const newState = { title, description, sections: sections.map(s => s.id === id ? { ...s, title: newTitle } : s) }
+    setSections(newState.sections)
+    pushHistory(newState)
   }
 
   const deleteSection = (id: string) => {
     if (!confirm('Delete this section and all its lessons?')) return
-    setSections(sections.filter(s => s.id !== id))
+    const newState = { title, description, sections: sections.filter(s => s.id !== id) }
+    setSections(newState.sections)
+    pushHistory(newState)
     toast.success('Section deleted')
   }
 
@@ -177,7 +211,9 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
     const idx = sections.findIndex(s => s.id === id)
     const next = [...sections]
     next.splice(idx + 1, 0, copy)
+    const newState = { title, description, sections: next }
     setSections(next)
+    pushHistory(newState)
     toast.success('Section duplicated')
   }
 
@@ -185,28 +221,36 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
     const oldIdx = sections.findIndex(s => s.id === sourceId)
     const newIdx = sections.findIndex(s => s.id === targetId)
     if (oldIdx < 0 || newIdx < 0) return
-    setSections(arrayMove(sections, oldIdx, newIdx))
+    const newSections = arrayMove(sections, oldIdx, newIdx)
+    const newState = { title, description, sections: newSections }
+    setSections(newSections)
+    pushHistory(newState)
   }
 
-  // ─── Lesson CRUD ───────────────────────────────────────────────────────────
   const addLesson = (sectionId: string) => {
     const newLesson: Lesson = {
       id: `les-${Date.now()}`, title: 'Untitled lesson', type: 'VIDEO', duration: 10, isPreview: false, content: ''
     }
-    setSections(sections.map(s => s.id === sectionId ? { ...s, lessons: [...s.lessons, newLesson] } : s))
+    const newSections = sections.map(s => s.id === sectionId ? { ...s, lessons: [...s.lessons, newLesson] } : s)
+    setSections(newSections)
     setActiveLessonId(newLesson.id)
+    pushHistory({ title, description, sections: newSections })
     toast.success('Lesson added')
   }
 
   const renameLesson = (id: string, newTitle: string) => {
-    setSections(sections.map(s => ({
+    const newSections = sections.map(s => ({
       ...s, lessons: s.lessons.map(l => l.id === id ? { ...l, title: newTitle } : l)
-    })))
+    }))
+    setSections(newSections)
+    pushHistory({ title, description, sections: newSections })
   }
 
   const deleteLesson = (id: string) => {
-    setSections(sections.map(s => ({ ...s, lessons: s.lessons.filter(l => l.id !== id) })))
+    const newSections = sections.map(s => ({ ...s, lessons: s.lessons.filter(l => l.id !== id) }))
     if (activeLessonId === id) setActiveLessonId(null)
+    setSections(newSections)
+    pushHistory({ title, description, sections: newSections })
     toast.success('Lesson deleted')
   }
 
@@ -218,7 +262,9 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
         const idx = s.lessons.findIndex(l => l.id === id)
         const newLessons = [...s.lessons]
         newLessons.splice(idx + 1, 0, copy)
-        setSections(sections.map(sec => sec.id === s.id ? { ...sec, lessons: newLessons } : sec))
+        const newSections = sections.map(sec => sec.id === s.id ? { ...sec, lessons: newLessons } : sec)
+        setSections(newSections)
+        pushHistory({ title, description, sections: newSections })
         toast.success('Lesson duplicated')
         return
       }
@@ -234,14 +280,32 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
         const swapIdx = lIdx + dir
         if (swapIdx >= 0 && swapIdx < newLessons.length) {
           ;[newLessons[lIdx], newLessons[swapIdx]] = [newLessons[swapIdx], newLessons[lIdx]]
-          setSections(sections.map(s => s.id === section.id ? { ...s, lessons: newLessons } : s))
+          const newSections = sections.map(s => s.id === section.id ? { ...s, lessons: newLessons } : s)
+          setSections(newSections)
+          pushHistory({ title, description, sections: newSections })
         }
         return
       }
     }
   }
 
-  // ─── Publish ───────────────────────────────────────────────────────────────
+  const updateLesson = (id: string, patch: Partial<Lesson>) => {
+    const newSections = sections.map(s => ({
+      ...s,
+      lessons: s.lessons.map(l => l.id === id ? { ...l, ...patch } : l)
+    }))
+    setSections(newSections)
+    pushHistory({ title, description, sections: newSections })
+  }
+
+  const updateCourse = (patch: Partial<CourseFull>) => {
+    if (!course) return
+    setCourse({ ...course, ...patch })
+    if (patch.title !== undefined) setTitle(patch.title)
+    if (patch.description !== undefined) setDescription(patch.description)
+    pushHistory({ title: patch.title ?? title, description: patch.description ?? description, sections })
+  }
+
   const togglePublish = async () => {
     if (!course) return
     const newStatus = course.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
@@ -256,187 +320,140 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
     } catch { toast.error('Failed to publish') }
   }
 
-  // ─── Render ────────────────────────────────────────────────────────────────
   if (loading || !course) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading course builder…</p>
-        </div>
+        <LoadingState size="lg" text="Loading course builder..." />
       </div>
     )
   }
 
   const activeLesson = sections.flatMap(s => s.lessons).find(l => l.id === activeLessonId) || null
 
+  const editorStatus: EditorStatus = course.status === 'PUBLISHED' ? 'published' : 'draft'
+
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
-      {/* ═══ Top Toolbar ═══════════════════════════════════════════════════════ */}
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-4 shadow-sm">
+    <EditorLayout
+      leftSidebar={{
+        title: 'Course Outline',
+        icon: <BookOpen className="h-5 w-5" />,
+        width: 320,
+        defaultCollapsed: false,
+        children: (
+          <>
+            <div className="p-3 space-y-2">
+              <Button size="sm" variant="ghost" className="w-full gap-1.5" onClick={addSection}>
+                <Plus className="h-4 w-4" /> Section
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto scroll-thin min-h-0">
+              <div className="p-3">
+                {sections.length === 0 ? (
+                  <EmptyState
+                    title="No sections yet"
+                    description="Add your first section to get started."
+                    icon={<BookOpen className="h-8 w-8" />}
+                  />
+                ) : (
+                  <OutlineSections
+                    sections={sections}
+                    activeLessonId={activeLessonId}
+                    onSelectLesson={setActiveLessonId}
+                    onAddLesson={addLesson}
+                    onRenameSection={renameSection}
+                    onDeleteSection={deleteSection}
+                    onDuplicateSection={duplicateSection}
+                    onRenameLesson={renameLesson}
+                    onDeleteLesson={deleteLesson}
+                    onDuplicateLesson={duplicateLesson}
+                    onMoveLesson={moveLesson}
+                    onReorderSections={reorderSections}
+                  />
+                )}
+              </div>
+            </div>
+          </>
+        ),
+      }}
+      centerCanvas={
+        <div className="flex-1 overflow-y-auto scroll-thin min-w-0 bg-grid">
+          <div className="mx-auto w-full max-w-[1000px] px-6 py-8 md:px-10 md:py-10">
+            {activeLesson ? (
+              <LessonEditor
+                key={activeLesson.id}
+                lesson={activeLesson}
+                onUpdate={(patch) => updateLesson(activeLesson.id, patch)}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center p-12">
+                <div className="text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted text-muted-foreground mx-auto mb-4">
+                    <FileEdit className="h-8 w-8" />
+                  </div>
+                  <p className="text-base font-semibold">Select a lesson to edit</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Choose a lesson from the outline on the left, or create a new one.
+                  </p>
+                  <Button size="sm" className="mt-4" onClick={addSection}>
+                    <Plus className="h-4 w-4 mr-1.5" /> Add Section
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      }
+      rightInspector={{
+        title: 'Settings',
+        width: 320,
+        defaultCollapsed: false,
+        children: (
+          <RightPanel
+            lesson={activeLesson}
+            course={course}
+            onUpdateLesson={(patch) => activeLesson && updateLesson(activeLesson.id, patch)}
+            onUpdateCourse={updateCourse}
+          />
+        ),
+      }}
+      leftCollapsed={!leftOpen}
+      rightCollapsed={!rightOpen}
+      onLeftToggle={(collapsed) => setLeftOpen(!collapsed)}
+      onRightToggle={(collapsed) => setRightOpen(!collapsed)}
+      publishBar={{
+        status: editorStatus,
+        lastSaved: lastSavedAt,
+        hasChanges: hasUnsavedChanges,
+        onSave: () => save(true),
+        onPreview: () => setShowPreview(true),
+        onPublish: togglePublish,
+        onUnpublish: togglePublish,
+        onHistory: () => {},
+        actions: [
+          {
+            label: 'Undo',
+            icon: <Undo2 className="h-4 w-4" />,
+            onClick: undo,
+            variant: 'ghost',
+            shortcut: '⌘Z',
+          },
+          {
+            label: 'Redo',
+            icon: <Redo2 className="h-4 w-4" />,
+            onClick: redo,
+            variant: 'ghost',
+            shortcut: '⌘Y',
+          },
+        ],
+      }}
+      className="h-screen"
+    >
+      <header slot="top-toolbar" className="sr-only">
         <Button variant="ghost" size="sm" onClick={closeBuilder} className="gap-1.5">
           <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Courses</span>
         </Button>
-        <div className="h-6 w-px bg-border" />
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Input
-            className="h-9 border-none bg-transparent px-0 text-base font-semibold focus-visible:ring-0"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Course title"
-          />
-          <Badge variant="secondary" className={cn(
-            'text-xs shrink-0',
-            course.status === 'PUBLISHED' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'
-          )}>
-            {course.status === 'PUBLISHED' ? 'Published' : 'Draft'}
-          </Badge>
-        </div>
-        {/* Save indicator */}
-        <SaveIndicator state={saveState} lastSavedAt={lastSavedAt} />
-        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setShortcutsOpen(true)} title="Keyboard shortcuts (Ctrl+/)">
-          <Keyboard className="h-4 w-4" />
-        </Button>
-        <div className="h-6 w-px bg-border" />
-        <Button variant="outline" size="sm" onClick={() => save(true)} className="gap-1.5">
-          <Save className="h-4 w-4" /> <span className="hidden sm:inline">Save</span>
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setShowPreview(true)} className="gap-1.5">
-          <Eye className="h-4 w-4" /> <span className="hidden sm:inline">Preview</span>
-        </Button>
-        <Button size="sm" onClick={togglePublish} className={cn('gap-1.5', course.status === 'PUBLISHED' ? '' : 'bg-emerald-600 hover:bg-emerald-700 text-white')}>
-          {course.status === 'PUBLISHED' ? <><Archive className="h-4 w-4" /> <span className="hidden sm:inline">Unpublish</span></> : <><Rocket className="h-4 w-4" /> <span className="hidden sm:inline">Publish</span></>}
-        </Button>
       </header>
 
-      {/* ═══ Three-panel layout ════════════════════════════════════════════════ */}
-      <div className="flex flex-1 min-h-0">
-        {/* ─── Left Sidebar: Course Outline ──────────────────────────────────── */}
-        <AnimatePresence initial={false}>
-          {leftOpen && (
-            <motion.aside
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="flex flex-col border-r bg-muted/30 overflow-hidden shrink-0"
-            >
-              <div className="flex items-center justify-between px-4 py-3 border-b bg-background/50 shrink-0">
-                <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Course Outline</p>
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant="ghost" className="h-8 px-3 text-sm gap-1.5" onClick={addSection}>
-                    <Plus className="h-4 w-4" /> Section
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setLeftOpen(false)} title="Collapse (Ctrl+\)">
-                    <PanelLeftClose className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="flex-1 overflow-y-auto scroll-thin min-h-0">
-                <div className="p-3">
-                  {sections.length === 0 ? (
-                    <div className="rounded-xl border border-dashed p-8 text-center">
-                      <BookOpen className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-                      <p className="text-sm text-muted-foreground">No sections yet. Add your first section to get started.</p>
-                    </div>
-                  ) : (
-                    <OutlineSections
-                      sections={sections}
-                      activeLessonId={activeLessonId}
-                      onSelectLesson={setActiveLessonId}
-                      onAddLesson={addLesson}
-                      onRenameSection={renameSection}
-                      onDeleteSection={deleteSection}
-                      onDuplicateSection={duplicateSection}
-                      onRenameLesson={renameLesson}
-                      onDeleteLesson={deleteLesson}
-                      onDuplicateLesson={duplicateLesson}
-                      onMoveLesson={moveLesson}
-                      onReorderSections={reorderSections}
-                    />
-                  )}
-                </div>
-              </div>
-            </motion.aside>
-          )}
-        </AnimatePresence>
-
-        {/* ─── Collapsed left panel — expand button ─────────────────────────── */}
-        {!leftOpen && (
-          <button
-            onClick={() => setLeftOpen(true)}
-            className="flex items-center gap-1 border-r bg-muted/30 px-2 py-3 text-muted-foreground hover:text-foreground hover:bg-muted transition shrink-0"
-            title="Show outline (Ctrl+\)"
-          >
-            <PanelLeftOpen className="h-4 w-4" />
-          </button>
-        )}
-
-        {/* ─── Center: Lesson Editor ─────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto scroll-thin min-w-0 bg-grid">
-          {activeLesson ? (
-            <LessonEditor key={activeLesson.id} lesson={activeLesson} onUpdate={(patch) => {
-              setSections(sections.map(s => ({
-                ...s,
-                lessons: s.lessons.map(l => l.id === activeLesson.id ? { ...l, ...patch } : l)
-              })))
-            }} />
-          ) : (
-            <div className="flex h-full items-center justify-center p-12">
-              <div className="text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted text-muted-foreground mx-auto mb-4">
-                  <FileEdit className="h-8 w-8" />
-                </div>
-                <p className="text-base font-semibold">Select a lesson to edit</p>
-                <p className="text-sm text-muted-foreground mt-1">Choose a lesson from the outline on the left, or create a new one.</p>
-                <Button size="sm" className="mt-4" onClick={addSection}>
-                  <Plus className="h-4 w-4 mr-1.5" /> Add Section
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ─── Right: Settings Panel ─────────────────────────────────────────── */}
-        <AnimatePresence initial={false}>
-          {rightOpen && (
-            <motion.aside
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="hidden md:flex flex-col border-l bg-muted/30 overflow-hidden shrink-0"
-            >
-              <RightPanel lesson={activeLesson} course={course} onClose={() => setRightOpen(false)} onUpdateCourse={(patch) => {
-                if (!course) return
-                setCourse({ ...course, ...patch })
-                // Trigger save
-                if (patch.title !== undefined) setTitle(patch.title)
-                if (patch.description !== undefined) setDescription(patch.description)
-              }} onUpdateLesson={(patch) => {
-                if (!activeLesson) return
-                setSections(sections.map(s => ({
-                  ...s,
-                  lessons: s.lessons.map(l => l.id === activeLesson.id ? { ...l, ...patch } : l)
-                })))
-              }} />
-            </motion.aside>
-          )}
-        </AnimatePresence>
-
-        {/* ─── Collapsed right panel — expand button ────────────────────────── */}
-        {!rightOpen && (
-          <button
-            onClick={() => setRightOpen(true)}
-            className="hidden md:flex items-center gap-1 border-l bg-muted/30 px-2 py-3 text-muted-foreground hover:text-foreground hover:bg-muted transition shrink-0"
-            title="Show inspector (Ctrl+Shift+\)"
-          >
-            <PanelRightOpen className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
-      {/* ═══ Keyboard shortcuts dialog ═════════════════════════════════════════ */}
       <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -445,10 +462,12 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
           </DialogHeader>
           <div className="space-y-2 py-2">
             {[
-              { keys: 'Ctrl+S', desc: 'Save course' },
-              { keys: 'Ctrl+\\', desc: 'Toggle outline sidebar' },
-              { keys: 'Ctrl+Shift+\\', desc: 'Toggle settings panel' },
-              { keys: 'Ctrl+/', desc: 'Show this help' },
+              { keys: '⌘S', desc: 'Save course' },
+              { keys: '⌘\\', desc: 'Toggle outline sidebar' },
+              { keys: '⌘⇧\\', desc: 'Toggle settings panel' },
+              { keys: '⌘/', desc: 'Show this help' },
+              { keys: '⌘Z', desc: 'Undo' },
+              { keys: '⌘Y', desc: 'Redo' },
             ].map((s) => (
               <div key={s.keys} className="flex items-center justify-between rounded-lg border p-2.5">
                 <span className="text-sm">{s.desc}</span>
@@ -459,11 +478,12 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
         </DialogContent>
       </Dialog>
 
-      {/* ═══ Preview overlay ═══════════════════════════════════════════════════ */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
         <DialogContent className="max-w-4xl h-[80vh]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Eye className="h-5 w-5 text-primary" /> Student Preview</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-primary" /> Student Preview
+            </DialogTitle>
             <DialogDescription>This is how students will see your course.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto scroll-thin">
@@ -497,42 +517,10 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </EditorLayout>
   )
 }
 
-// ─── Save Indicator ──────────────────────────────────────────────────────────
-function SaveIndicator({ state, lastSavedAt }: { state: SaveState; lastSavedAt: number | null }) {
-  const [, setNow] = useState(Date.now())
-  useEffect(() => {
-    if (state !== 'idle') return
-    const t = setInterval(() => setNow(Date.now()), 5000)
-    return () => clearInterval(t)
-  }, [state])
-
-  let label = 'All changes saved'
-  let icon: React.ReactNode = <CircleDot className="h-3.5 w-3.5" />
-  let color = 'text-muted-foreground'
-
-  if (state === 'saving') { label = 'Saving…'; icon = <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" />; color = 'text-amber-600' }
-  else if (state === 'saved') { label = 'Saved'; icon = <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />; color = 'text-emerald-600' }
-  else if (state === 'error') { label = 'Save failed'; icon = <AlertCircle className="h-3.5 w-3.5 text-rose-500" />; color = 'text-rose-600' }
-  else if (lastSavedAt) {
-    const sec = Math.max(0, Math.round((Date.now() - lastSavedAt) / 1000))
-    if (sec < 5) label = 'Saved just now'
-    else if (sec < 60) label = `Saved ${sec}s ago`
-    else { const min = Math.round(sec / 60); label = min < 60 ? `Saved ${min}m ago` : `Saved ${Math.round(min / 60)}h ago` }
-  }
-
-  return (
-    <div className={cn('flex items-center gap-1.5 text-xs font-medium', color)}>
-      {icon}
-      <span className="hidden lg:inline">{label}</span>
-    </div>
-  )
-}
-
-// ─── Outline Sections (with drag-and-drop) ───────────────────────────────────
 function OutlineSections({
   sections, activeLessonId, onSelectLesson, onAddLesson,
   onRenameSection, onDeleteSection, onDuplicateSection,
@@ -608,7 +596,6 @@ function OutlineSections({
   )
 }
 
-// ─── Sortable Section ────────────────────────────────────────────────────────
 function SortableSection({
   section, index, collapsed, onToggle, activeLessonId, onSelectLesson, onAddLesson,
   onRename, onDelete, onDuplicate, onRenameLesson, onDeleteLesson, onDuplicateLesson, onMoveLesson,
@@ -723,7 +710,6 @@ function SortableSection({
   )
 }
 
-// ─── Lesson Row ──────────────────────────────────────────────────────────────
 function LessonRow({
   lesson, active, onSelect, onRename, onDelete, onDuplicate, onMoveUp, onMoveDown, canMoveUp, canMoveDown,
 }: {
@@ -776,8 +762,8 @@ function LessonRow({
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditing(true) }} className="gap-2"><Pencil className="h-4 w-4" /> Rename</DropdownMenuItem>
           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDuplicate() }} className="gap-2"><Copy className="h-4 w-4" /> Duplicate</DropdownMenuItem>
-          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={!canMoveUp} className="gap-2"><ChevronRight className="h-4 w-4 rotate-[-90deg]" /> Move up</DropdownMenuItem>
-          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={!canMoveDown} className="gap-2"><ChevronRight className="h-4 w-4 rotate-90" /> Move down</DropdownMenuItem>
+          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={!canMoveUp} className="gap-2"><ChevronDown className="h-4 w-4 rotate-[-90deg]" /> Move up</DropdownMenuItem>
+          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={!canMoveDown} className="gap-2"><ChevronDown className="h-4 w-4 rotate-90" /> Move down</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete() }} className="text-rose-600 focus:text-rose-700 gap-2"><Trash2 className="h-4 w-4" /> Delete</DropdownMenuItem>
         </DropdownMenuContent>
@@ -786,7 +772,6 @@ function LessonRow({
   )
 }
 
-// ─── Lesson Editor (center) ──────────────────────────────────────────────────
 function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: Partial<Lesson>) => void }) {
   const [showBlockPicker, setShowBlockPicker] = useState(false)
   const [showVideoInput, setShowVideoInput] = useState(false)
@@ -808,23 +793,10 @@ function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: 
   ]
 
   const addBlock = (block: typeof BLOCK_TYPES[number]) => {
-    if (block.action === 'youtube') {
-      setShowVideoInput(true)
-      setShowBlockPicker(false)
-      return
-    }
-    if (block.action === 'video') {
-      setShowVideoInput(true)
-      setShowBlockPicker(false)
-      return
-    }
-    if (block.action === 'image') {
-      setShowImageInput(true)
-      setShowBlockPicker(false)
-      return
-    }
+    if (block.action === 'youtube') { setShowVideoInput(true); setShowBlockPicker(false); return }
+    if (block.action === 'video') { setShowVideoInput(true); setShowBlockPicker(false); return }
+    if (block.action === 'image') { setShowImageInput(true); setShowBlockPicker(false); return }
     if (block.action === 'document') {
-      // Add a document download block
       const newContent = (lesson.content || '') + '\n\n📄 **Download:** [Click here to download](paste-your-document-url-here)\n\n'
       onUpdate({ content: newContent })
       setShowBlockPicker(false)
@@ -842,16 +814,10 @@ function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: 
   const insertVideoBlock = () => {
     if (!videoUrl.trim()) { toast.error('Please enter a video URL'); return }
     let embedUrl = videoUrl.trim()
-    // Convert YouTube URL to embed format
     const ytMatch = embedUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/)
-    if (ytMatch) {
-      embedUrl = `https://www.youtube.com/embed/${ytMatch[1]}`
-    }
-    // Convert Vimeo URL
+    if (ytMatch) embedUrl = `https://www.youtube.com/embed/${ytMatch[1]}`
     const vimeoMatch = embedUrl.match(/vimeo\.com\/(\d+)/)
-    if (vimeoMatch) {
-      embedUrl = `https://player.vimeo.com/video/${vimeoMatch[1]}`
-    }
+    if (vimeoMatch) embedUrl = `https://player.vimeo.com/video/${vimeoMatch[1]}`
     const newContent = (lesson.content || '') + `\n\n<video src="${embedUrl}" controls></video>\n\n[▶ Watch: ${embedUrl}](${embedUrl})\n\n`
     onUpdate({ content: newContent })
     setVideoUrl('')
@@ -870,7 +836,6 @@ function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: 
 
   return (
     <div className="mx-auto w-full max-w-[1000px] px-6 py-8 md:px-10 md:py-10">
-      {/* Lesson title */}
       <Input
         className="text-3xl font-bold border-none px-0 focus-visible:ring-0 bg-transparent mb-2"
         value={lesson.title}
@@ -883,7 +848,6 @@ function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: 
         {lesson.isPreview && <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-600">Free Preview</Badge>}
       </div>
 
-      {/* Content editor */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Lesson Content</Label>
         <Textarea
@@ -905,7 +869,6 @@ Complete the following exercise to practice what you've learned."
         />
       </div>
 
-      {/* Add block button + picker */}
       <div className="mt-6 flex flex-col items-center gap-3">
         <button
           onClick={() => setShowBlockPicker(!showBlockPicker)}
@@ -944,7 +907,6 @@ Complete the following exercise to practice what you've learned."
           )}
         </AnimatePresence>
 
-        {/* Video URL input */}
         <AnimatePresence>
           {showVideoInput && (
             <motion.div
@@ -973,7 +935,6 @@ Complete the following exercise to practice what you've learned."
           )}
         </AnimatePresence>
 
-        {/* Image URL input */}
         <AnimatePresence>
           {showImageInput && (
             <motion.div
@@ -1006,13 +967,11 @@ Complete the following exercise to practice what you've learned."
   )
 }
 
-// ─── Right Panel (settings) ──────────────────────────────────────────────────
-function RightPanel({ lesson, course, onUpdateLesson, onUpdateCourse, onClose }: {
+function RightPanel({ lesson, course, onUpdateLesson, onUpdateCourse }: {
   lesson: Lesson | null
   course: CourseFull
   onUpdateLesson: (patch: Partial<Lesson>) => void
   onUpdateCourse: (patch: Partial<CourseFull>) => void
-  onClose: () => void
 }) {
   const [tab, setTab] = useState<'lesson' | 'course'>('lesson')
 
@@ -1033,9 +992,6 @@ function RightPanel({ lesson, course, onUpdateLesson, onUpdateCourse, onClose }:
             Course
           </button>
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} title="Collapse (Ctrl+Shift+\)">
-          <PanelRightClose className="h-4 w-4" />
-        </Button>
       </div>
       <div className="flex-1 overflow-y-auto scroll-thin min-h-0">
         <div className="p-4 space-y-5">
@@ -1084,7 +1040,6 @@ function RightPanel({ lesson, course, onUpdateLesson, onUpdateCourse, onClose }:
             </div>
           ) : (
             <>
-              {/* Description */}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Course description</Label>
                 <Textarea
@@ -1095,7 +1050,6 @@ function RightPanel({ lesson, course, onUpdateLesson, onUpdateCourse, onClose }:
                 />
               </div>
 
-              {/* Category & Level */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium">Category</Label>
@@ -1121,7 +1075,6 @@ function RightPanel({ lesson, course, onUpdateLesson, onUpdateCourse, onClose }:
                 </div>
               </div>
 
-              {/* Pricing */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium flex items-center gap-1.5"><DollarSign className="h-4 w-4 text-muted-foreground" /> Pricing</Label>
                 <div className="flex items-center gap-2">
@@ -1154,7 +1107,6 @@ function RightPanel({ lesson, course, onUpdateLesson, onUpdateCourse, onClose }:
                 )}
               </div>
 
-              {/* Access control */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium flex items-center gap-1.5"><Users className="h-4 w-4 text-muted-foreground" /> Access</Label>
                 <div className="space-y-1.5">
@@ -1185,7 +1137,6 @@ function RightPanel({ lesson, course, onUpdateLesson, onUpdateCourse, onClose }:
                 </div>
               </div>
 
-              {/* Status */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Status</Label>
                 <div className="flex gap-1.5">
@@ -1210,7 +1161,6 @@ function RightPanel({ lesson, course, onUpdateLesson, onUpdateCourse, onClose }:
                 </div>
               </div>
 
-              {/* Stats */}
               <div className="rounded-lg bg-muted/50 p-3 space-y-1.5">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stats</p>
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Students</span><span className="font-medium">{course.studentsCount.toLocaleString()}</span></div>

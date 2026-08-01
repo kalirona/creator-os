@@ -14,10 +14,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { useApi, formatNumber } from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
+import { StatGrid } from '@/components/ui-enterprise/StatGrid'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
 
 interface Tool {
   id: string; slug: string; name: string; description: string; icon: string; category: string;
@@ -89,26 +90,22 @@ function ToolBuilder() {
     finally { setSaving(false) }
   }
 
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (loading || !data) return <LoadingState size="lg" text="Loading tools..." />
 
   const stats = data.stats
   const grouped = data.tools.reduce<Record<string, Tool[]>>((acc, t) => { (acc[t.category] ||= []).push(t); return acc }, {})
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { l: 'Total Tools', v: stats.total, i: Sliders },
-          { l: 'Visible', v: stats.visible, i: Eye },
-          { l: 'Generations', v: formatNumber(stats.generations), i: Activity },
-          { l: 'Credits Used', v: formatNumber(stats.totalCreditsUsed), i: Zap },
-        ].map((s) => { const Icon = s.i; return (
-          <Card key={s.l}><CardContent className="p-4 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600"><Icon className="h-4 w-4" /></div>
-            <div><p className="text-lg font-bold tabular-nums leading-none">{s.v}</p><p className="text-[11px] text-muted-foreground mt-1">{s.l}</p></div>
-          </CardContent></Card>
-        )})}
-      </div>
+      <StatGrid
+        columns={4}
+        items={[
+          { label: 'Total Tools', value: stats.total, icon: Sliders, color: 'primary' },
+          { label: 'Visible', value: stats.visible, icon: Eye, color: 'success' },
+          { label: 'Generations', value: formatNumber(stats.generations), icon: Activity, color: 'warning' },
+          { label: 'Credits Used', value: formatNumber(stats.totalCreditsUsed), icon: Zap, color: 'muted' },
+        ]}
+      />
 
       {editing ? (
         <Card>
@@ -181,7 +178,7 @@ function ProvidersPanel() {
   const { data, loading, refetch } = useApi<{ providers: ({id: string; name: string; slug: string; apiKey: string; baseUrl: string; isActive: boolean; priority: number; models: {id: string; name: string; displayName: string; isDefault: boolean; isActive: boolean; costMultiplier: number}[]})[] }>('/api/admin/providers')
   const [showKey, setShowKey] = useState<Record<string, boolean>>({})
 
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (loading || !data) return <LoadingState size="lg" text="Loading providers..." />
 
   return (
     <div className="space-y-4">
@@ -269,7 +266,7 @@ function RoutingPanel() {
 // ===== Feature Flags =====
 function FlagsPanel() {
   const { data, loading, refetch } = useApi<{ flags: {id: string; key: string; name: string; description: string; enabled: boolean}[] }>('/api/admin/flags')
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (loading || !data) return <LoadingState size="lg" text="Loading feature flags..." />
   return (
     <div className="space-y-2">
       {data.flags.map((f) => (
@@ -291,7 +288,7 @@ function FlagsPanel() {
 // ===== Generations log =====
 function GenerationsPanel() {
   const { data, loading } = useApi<{ generations: {id: string; toolSlug: string; title: string; status: string; creditsUsed: number; createdAt: string}[] }>('/api/admin/generations')
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (loading || !data) return <LoadingState size="lg" text="Loading generations..." />
   return (
     <Card><CardContent className="p-0">
       <div className="max-h-[600px] overflow-y-auto scroll-thin">
@@ -317,7 +314,7 @@ function SettingsPanel() {
   const [editing, setEditing] = useState<Record<string, string>>({})
   const [savingKey, setSavingKey] = useState<string | null>(null)
 
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (loading || !data) return <LoadingState size="lg" text="Loading settings..." />
 
   const grouped = data.settings.reduce<Record<string, typeof data.settings>>((acc, s) => { (acc[s.category] ||= []).push(s); return acc }, {})
   const CAT_ICON: Record<string, React.ComponentType<{ className?: string }>> = { general: Settings2, billing: DollarSign, ai: Cpu, storage: Database, email: Server }

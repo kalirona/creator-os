@@ -2,37 +2,53 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ModuleId } from '@/lib/nav'
 
-interface AppState {
+interface NavigationState {
   activeModule: ModuleId
   setActiveModule: (m: ModuleId) => void
   sidebarCollapsed: boolean
   toggleSidebar: () => void
+  setSidebarCollapsed: (collapsed: boolean) => void
   commandOpen: boolean
   setCommandOpen: (v: boolean) => void
   theme: 'light' | 'dark'
   setTheme: (t: 'light' | 'dark') => void
   toggleTheme: () => void
-  /** When set, the target module should auto-open its create dialog */
   createDialogFor: ModuleId | null
   triggerCreateDialog: (m: ModuleId) => void
   clearCreateDialog: () => void
-  /** When set, the full-screen Course Builder is rendered (overrides dashboard layout) */
   builderCourseId: string | null
   openBuilder: (courseId: string) => void
   closeBuilder: () => void
-  /** When set, the full-screen Course Player (student preview) is rendered */
   previewCourseId: string | null
   openPreview: (courseId: string) => void
   closePreview: () => void
+  favorites: ModuleId[]
+  toggleFavorite: (m: ModuleId) => void
+  recentModules: ModuleId[]
+  addToRecent: (m: ModuleId) => void
+  pinnedModules: ModuleId[]
+  togglePin: (m: ModuleId) => void
+  breadcrumbs: { label: string; href?: string }[]
+  setBreadcrumbs: (breadcrumbs: { label: string; href?: string }[]) => void
+  searchQuery: string
+  setSearchQuery: (query: string) => void
 }
 
-export const useAppStore = create<AppState>()(
+export const useAppStore = create<NavigationState>()(
   persist(
     (set) => ({
       activeModule: 'dashboard',
-      setActiveModule: (m) => set({ activeModule: m }),
+      setActiveModule: (m) =>
+        set((s) => ({
+          activeModule: m,
+          recentModules: [
+            m,
+            ...s.recentModules.filter((r) => r !== m),
+          ].slice(0, 8),
+        })),
       sidebarCollapsed: false,
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       commandOpen: false,
       setCommandOpen: (v) => set({ commandOpen: v }),
       theme: 'dark',
@@ -47,10 +63,43 @@ export const useAppStore = create<AppState>()(
       previewCourseId: null,
       openPreview: (courseId) => set({ previewCourseId: courseId }),
       closePreview: () => set({ previewCourseId: null }),
+      favorites: [],
+      toggleFavorite: (m) =>
+        set((s) => ({
+          favorites: s.favorites.includes(m)
+            ? s.favorites.filter((f) => f !== m)
+            : [...s.favorites, m],
+        })),
+      recentModules: [],
+      addToRecent: (m) =>
+        set((s) => ({
+          recentModules: [
+            m,
+            ...s.recentModules.filter((r) => r !== m),
+          ].slice(0, 8),
+        })),
+      pinnedModules: [],
+      togglePin: (m) =>
+        set((s) => ({
+          pinnedModules: s.pinnedModules.includes(m)
+            ? s.pinnedModules.filter((p) => p !== m)
+            : [...s.pinnedModules, m],
+        })),
+      breadcrumbs: [],
+      setBreadcrumbs: (breadcrumbs) => set({ breadcrumbs }),
+      searchQuery: '',
+      setSearchQuery: (query) => set({ searchQuery: query }),
     }),
     {
       name: 'creatoros-app',
-      partialize: (s) => ({ activeModule: s.activeModule, sidebarCollapsed: s.sidebarCollapsed, theme: s.theme }),
+      partialize: (s) => ({
+        activeModule: s.activeModule,
+        sidebarCollapsed: s.sidebarCollapsed,
+        theme: s.theme,
+        favorites: s.favorites,
+        recentModules: s.recentModules,
+        pinnedModules: s.pinnedModules,
+      }),
     }
   )
 )

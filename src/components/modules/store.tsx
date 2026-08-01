@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  ShoppingBag, Package, Users, DollarSign, TrendingUp, TrendingDown, Search,
+  ShoppingBag, Package, Users, DollarSign, TrendingUp, TrendingDown,
   Star, Download, Eye, MoreVertical, Tag, Receipt, ShoppingCart, CreditCard,
   AlertCircle, ArrowLeft, Loader2, Filter,
 } from 'lucide-react'
@@ -12,12 +12,17 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { ApiErrorBanner, ModuleEmptyState } from '@/components/modules/_state-utils'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import { ErrorState } from '@/components/ui-enterprise/ErrorState'
+import { EmptyState } from '@/components/ui-enterprise/EmptyState'
+import { MetricCard } from '@/components/ui-enterprise/MetricCard'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { SearchToolbar } from '@/components/ui-enterprise/SearchToolbar'
+import { StatGrid } from '@/components/ui-enterprise/StatGrid'
+import { SectionHeader } from '@/components/ui-enterprise/SectionHeader'
 
 interface Product { id: string; name: string; price: number; salesCount: number; status: string; type: string; coverUrl: string | null; revenue: number }
 interface Order { id: string; customerName: string; customerEmail: string; amount: number; status: string; productName: string; createdAt: string }
@@ -60,7 +65,7 @@ function OverviewTab() {
   const { data: ordersData, loading: ordersLoading } = useApi<{ orders: Order[]; stats: { total: number; revenue: number; refunds: number; pending: number } }>('/api/data/orders')
   const { data: products } = useApi<Product[]>('/api/data/products')
 
-  if (ordersLoading) return <Skeleton className="h-96 rounded-xl" />
+  if (ordersLoading) return <LoadingState size="lg" text="Loading store overview..." />
 
   const orders = ordersData?.orders || []
   const stats = ordersData?.stats || { total: 0, revenue: 0, refunds: 0, pending: 0 }
@@ -75,22 +80,17 @@ function OverviewTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {kpis.map((k) => {
-          const Icon = k.icon
-          return (
-            <Card key={k.label}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
-                  <span className={cn('text-xs font-medium', k.up === true && 'text-emerald-500', k.up === false && 'text-rose-500', k.up === null && 'text-muted-foreground')}>{k.delta}</span>
-                </div>
-                <p className="text-2xl font-bold tabular-nums">{k.value}</p>
-                <p className="text-xs text-muted-foreground">{k.label}</p>
-              </CardContent>
-            </Card>
-          )
-        })}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {kpis.map((k) => (
+          <MetricCard
+            key={k.label}
+            title={k.label}
+            value={k.value}
+            change={k.delta}
+            changeType={k.up === true ? 'increase' : k.up === false ? 'decrease' : 'neutral'}
+            icon={<k.icon className="h-5 w-5" />}
+          />
+        ))}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
@@ -147,23 +147,23 @@ function CatalogTab() {
   const { data: products, loading } = useApi<Product[]>('/api/data/products')
   const [query, setQuery] = useState('')
 
-  if (loading) return <Skeleton className="h-96 rounded-xl" />
-  if (!products) return <ApiErrorBanner />
+  if (loading) return <LoadingState size="lg" text="Loading catalog..." />
+  if (!products) return <ErrorState />
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()))
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex-1 max-w-md relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search catalog..." className="pl-9" />
-        </div>
+        <SearchToolbar placeholder="Search catalog..." value={query} onChange={(value) => setQuery(value)} />
         <Badge variant="secondary" className="text-xs">{filtered.length} products</Badge>
       </div>
 
       {filtered.length === 0 ? (
-        <ModuleEmptyState icon={Package} title="No products in catalog" hint="Products you create in Digital Products will appear here automatically." />
+        <EmptyState
+          title="No products in catalog"
+          description="Products you create in Digital Products will appear here automatically."
+        />
       ) : (
         <Card>
           <CardContent className="p-0">
@@ -207,7 +207,7 @@ function OrdersTab() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('All')
 
-  if (loading) return <Skeleton className="h-96 rounded-xl" />
+  if (loading) return <LoadingState size="lg" text="Loading orders..." />
 
   const orders = data?.orders || []
   const filtered = orders.filter((o) =>
@@ -218,10 +218,7 @@ function OrdersTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex-1 max-w-md relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by order #, customer, or email..." className="pl-9" />
-        </div>
+        <SearchToolbar placeholder="Search by order #, customer, or email..." value={query} onChange={(value) => setQuery(value)} />
         <div className="flex gap-1.5">
           {['All', 'COMPLETED', 'PENDING', 'REFUNDED'].map((f) => (
             <button key={f} onClick={() => setFilter(f)}
@@ -234,7 +231,7 @@ function OrdersTab() {
       </div>
 
       {filtered.length === 0 ? (
-        <ModuleEmptyState icon={ShoppingBag} title="No orders found" hint={query ? 'Try a different search.' : 'Orders will appear here when customers purchase.'} />
+        <EmptyState title="No orders found" description={query ? 'Try a different search.' : 'Orders will appear here when customers purchase.'} />
       ) : (
         <Card>
           <CardContent className="p-0">
@@ -263,7 +260,7 @@ function CustomersTab() {
   const { data, loading } = useApi<{ customers: Customer[]; stats: { total: number; active: number; totalLTV: number; avgLTV: number } }>('/api/data/customers')
   const [query, setQuery] = useState('')
 
-  if (loading) return <Skeleton className="h-96 rounded-xl" />
+  if (loading) return <LoadingState size="lg" text="Loading customers..." />
 
   const customers = data?.customers || []
   const stats = data?.stats || { total: 0, active: 0, totalLTV: 0, avgLTV: 0 }
@@ -271,32 +268,20 @@ function CustomersTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { l: 'Customers', v: stats.total, i: Users },
-          { l: 'Active', v: stats.active, i: TrendingUp },
-          { l: 'Total LTV', v: formatCurrency(stats.totalLTV, { compact: true }), i: DollarSign },
-          { l: 'Avg LTV', v: formatCurrency(stats.avgLTV, { compact: true }), i: CreditCard },
-        ].map((s) => {
-          const Icon = s.i
-          return (
-            <Card key={s.l}>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
-                <div><p className="text-lg font-bold tabular-nums leading-none">{s.v}</p><p className="text-xs text-muted-foreground mt-1">{s.l}</p></div>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
+      <StatGrid
+        columns={4}
+        items={[
+          { label: 'Customers', value: stats.total, icon: Users, color: 'primary' },
+          { label: 'Active', value: stats.active, icon: TrendingUp, color: 'success' },
+          { label: 'Total LTV', value: formatCurrency(stats.totalLTV, { compact: true }), icon: DollarSign, color: 'warning' },
+          { label: 'Avg LTV', value: formatCurrency(stats.avgLTV, { compact: true }), icon: CreditCard, color: 'muted' },
+        ]}
+      />
 
-      <div className="flex-1 max-w-md relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search customers..." className="pl-9" />
-      </div>
+      <SearchToolbar placeholder="Search customers..." value={query} onChange={(value) => setQuery(value)} />
 
       {filtered.length === 0 ? (
-        <ModuleEmptyState icon={Users} title="No customers found" hint={query ? 'Try a different search.' : 'Customers will appear here after their first purchase.'} />
+        <EmptyState title="No customers found" description={query ? 'Try a different search.' : 'Customers will appear here after their first purchase.'} />
       ) : (
         <Card>
           <CardContent className="p-0">
@@ -383,24 +368,15 @@ function ReportsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { l: 'Total Revenue', v: formatCurrency(revenue, { compact: true }), i: DollarSign },
-          { l: 'Total Sales', v: formatNumber(totalSales, true), i: ShoppingBag },
-          { l: 'Refunds', v: formatCurrency(refunds, { compact: true }), i: TrendingDown },
-          { l: 'Customers', v: totalCustomers, i: Users },
-        ].map((s) => {
-          const Icon = s.i
-          return (
-            <Card key={s.l}>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
-                <div><p className="text-lg font-bold tabular-nums leading-none">{s.v}</p><p className="text-xs text-muted-foreground mt-1">{s.l}</p></div>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
+      <StatGrid
+        columns={4}
+        items={[
+          { label: 'Total Revenue', value: formatCurrency(revenue, { compact: true }), icon: DollarSign, color: 'primary' },
+          { label: 'Total Sales', value: formatNumber(totalSales, true), icon: ShoppingBag, color: 'success' },
+          { label: 'Refunds', value: formatCurrency(refunds, { compact: true }), icon: TrendingDown, color: 'danger' },
+          { label: 'Customers', value: totalCustomers, icon: Users, color: 'warning' },
+        ]}
+      />
 
       <Card>
         <CardHeader><CardTitle className="text-base">Revenue by Product</CardTitle></CardHeader>

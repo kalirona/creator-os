@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
+import { createRequestContext } from '@/lib/context'
 import { db } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
@@ -51,6 +52,7 @@ Rules:
 
 export async function POST(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const body = await req.json()
     const { selling, category } = body as { selling?: string; category?: string }
     if (!selling?.trim()) return NextResponse.json({ error: 'What are you selling? is required' }, { status: 400 })
@@ -58,8 +60,7 @@ export async function POST(req: NextRequest) {
     const tool = await db.aiTool.findUnique({ where: { slug: 'LANDING_PAGE_GENERATOR' } })
     if (!tool) return NextResponse.json({ error: 'Landing page tool not configured' }, { status: 404 })
 
-    const user = await db.user.findFirst({ orderBy: { createdAt: 'asc' } })
-    if (!user) return NextResponse.json({ error: 'No user' }, { status: 400 })
+    const user = ctx.user
     if (user.credits < tool.creditCost) return NextResponse.json({ error: `Insufficient credits (${tool.creditCost} required, ${user.credits} available)` }, { status: 402 })
 
     const zai = await ZAI.create()
@@ -74,14 +75,11 @@ export async function POST(req: NextRequest) {
     const data = parseStructured(raw)
     if (!data || !Array.isArray(data.sections)) return NextResponse.json({ error: 'AI failed to generate valid landing page. Please try again.' }, { status: 502 })
 
-    // Persist: create a Page + PageSections in DB
-    const workspace = await db.workspace.findFirst()
-    if (!workspace) return NextResponse.json({ error: 'No workspace' }, { status: 400 })
     const slug = `landing-${Date.now().toString(36)}`
     const title = selling.slice(0, 60)
     const page = await db.page.create({
       data: {
-        workspaceId: workspace.id, title, slug, type: 'LANDING', category: category || 'General',
+        workspaceId: ctx.workspace.id, title, slug, type: 'LANDING', category: category || 'General',
         status: 'DRAFT', seoTitle: data.seo?.title || title, seoDescription: data.seo?.description || '',
         schema: JSON.stringify({ '@type': 'Product', name: title }),
       },
@@ -91,17 +89,18 @@ export async function POST(req: NextRequest) {
       await db.pageSection.create({ data: { pageId: page.id, type: sec.type, content: JSON.stringify(sec.content), position: i } })
     }
 
-    // Deduct credits
     await db.user.update({ where: { id: user.id }, data: { credits: { decrement: tool.creditCost } } })
     await db.creditTransaction.create({ data: { userId: user.id, amount: -tool.creditCost, reason: 'AI Landing Page' } })
 
-    // Record generation
     await db.aiGeneration.create({
       data: { userId: user.id, toolId: tool.id, toolSlug: tool.slug, title, input: selling, output: raw, structured: JSON.stringify(data), status: 'COMPLETED', creditsUsed: tool.creditCost },
     })
 
     return NextResponse.json({ success: true, pageId: page.id, pageSlug: slug, sections: data.sections, seo: data.seo, creditsUsed: tool.creditCost, remainingCredits: user.credits - tool.creditCost })
   } catch (e) {
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     console.error('AI landing page error:', e)
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 500 })
   }

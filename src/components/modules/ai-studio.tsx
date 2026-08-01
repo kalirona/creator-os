@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Skeleton } from '@/components/ui/skeleton'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/app-store'
@@ -127,7 +127,7 @@ export function AiStudioModule() {
       {!activeTool ? (
         // Tool picker
         toolsLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 9 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}</div>
+          <LoadingState size="lg" text="Loading AI tools..." />
         ) : (
           Object.entries(grouped).map(([cat, list]) => (
             <div key={cat}>

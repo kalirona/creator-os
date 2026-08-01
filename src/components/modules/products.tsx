@@ -1,27 +1,56 @@
 'use client'
+
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
 import {
-  Search, Star, Package, Plus, DollarSign, TrendingUp, Download, Eye, Copy,
-  Trash2, MoreVertical, Pencil, Archive, BarChart3, Loader2, FileText, Image as ImageIcon,
-  Layers, Tag, ArrowLeft, Save, Rocket, Settings, Globe,
+  Plus,
+  Search,
+  DollarSign,
+  Download,
+  Package,
+  Eye,
+  Save,
+  Rocket,
+  Archive,
+  BarChart3,
+  Star,
+  MoreVertical,
+  Loader2,
+  Copy,
+  Trash2,
+  Pencil,
+  ArrowLeft,
+  Upload,
+  Tag,
+  Globe,
+  Lock,
+  FileText,
+  Image as ImageIcon,
+  Clock,
 } from 'lucide-react'
 import { useApi, formatCurrency, formatNumber } from '@/hooks/use-api'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Skeleton } from '@/components/ui/skeleton'
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { CreateDialog } from '@/components/app/create-dialog'
 import { useAppStore } from '@/store/app-store'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { ApiErrorBanner, ModuleEmptyState } from '@/components/modules/_state-utils'
+import { EditorLayout } from '@/components/editor/EditorLayout'
+import { EmptyState } from '@/components/ui-enterprise/EmptyState'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { ErrorState } from '@/components/ui-enterprise/ErrorState'
+import { AppCard } from '@/components/ui-enterprise/AppCard'
+import { MetricCard } from '@/components/ui-enterprise/MetricCard'
+import { SearchToolbar } from '@/components/ui-enterprise/SearchToolbar'
+import { FilterToolbar } from '@/components/ui-enterprise/FilterToolbar'
+import { BulkToolbar } from '@/components/ui-enterprise/BulkToolbar'
+import { EntityCard } from '@/components/ui-enterprise/EntityCard'
+import type { EditorStatus } from '@/components/editor/EditorLayout'
 
 interface Product {
   id: string; name: string; description: string; type: string; price: number
@@ -30,16 +59,18 @@ interface Product {
 }
 
 const TYPE_META: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; gradient: string; label: string }> = {
-  DIGITAL: { icon: FileText, color: 'text-sky-600', gradient: 'from-sky-500/20 to-cyan-500/10', label: 'Digital' },
-  BUNDLE: { icon: Layers, color: 'text-violet-600', gradient: 'from-violet-500/20 to-fuchsia-500/10', label: 'Bundle' },
+  DIGITAL: { icon: Package, color: 'text-sky-600', gradient: 'from-sky-500/20 to-cyan-500/10', label: 'Digital' },
+  BUNDLE: { icon: Package, color: 'text-violet-600', gradient: 'from-violet-500/20 to-fuchsia-500/10', label: 'Bundle' },
   MEMBERSHIP: { icon: Package, color: 'text-amber-600', gradient: 'from-amber-500/20 to-orange-500/10', label: 'Membership' },
   COURSE: { icon: Package, color: 'text-emerald-600', gradient: 'from-emerald-500/20 to-teal-500/10', label: 'Course' },
 }
+
 const STATUS_META: Record<string, { label: string; cls: string }> = {
   ACTIVE: { label: 'Active', cls: 'bg-emerald-500/10 text-emerald-600' },
   DRAFT: { label: 'Draft', cls: 'bg-amber-500/10 text-amber-600' },
   ARCHIVED: { label: 'Archived', cls: 'bg-muted text-muted-foreground' },
 }
+
 const FILTERS = ['All', 'DIGITAL', 'BUNDLE', 'MEMBERSHIP', 'COURSE']
 
 export function ProductsModule() {
@@ -49,6 +80,7 @@ export function ProductsModule() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const setActiveModule = useAppStore((s) => s.setActiveModule)
   const createDialogFor = useAppStore((s) => s.createDialogFor)
   const clearCreateDialog = useAppStore((s) => s.clearCreateDialog)
@@ -64,7 +96,13 @@ export function ProductsModule() {
     return <ProductEditor product={editingProduct} onBack={() => { setEditingProduct(null); refetch() }} />
   }
 
-  if (error) return <ApiErrorBanner message={error} onRetry={refetch} />
+  if (error) return <ErrorState description={error} action={{ label: 'Retry', onClick: refetch }} />
+
+  const filterOptions = FILTERS.map((f) => ({
+    key: f,
+    label: f === 'All' ? 'All Products' : TYPE_META[f]?.label || f,
+    active: filter === f,
+  }))
 
   const filtered = (products || []).filter((p) =>
     (filter === 'All' || p.type === filter) &&
@@ -112,117 +150,129 @@ export function ProductsModule() {
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setActionLoading(null) }
   }
 
+  const handleFilterChange = (options: any[]) => {
+    const activeFilter = options.find(o => o.active)
+    setFilter(activeFilter?.key || 'All')
+  }
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex-1 max-w-md relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search products..." className="pl-9" />
-        </div>
-        <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1.5" /> New Product</Button>
+        <SearchToolbar
+          placeholder="Search products..."
+          value={query}
+          onChange={setQuery}
+          className="max-w-md"
+        />
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4 mr-1.5" /> New Product
+        </Button>
       </div>
 
-      {/* Stats */}
+      {selectedProducts.length > 0 && (
+        <BulkToolbar
+          selectedCount={selectedProducts.length}
+          totalCount={filtered.length}
+          onSelectNone={() => setSelectedProducts([])}
+          actions={
+            <>
+              <Button size="sm" variant="outline" disabled>
+                Delete selected
+              </Button>
+            </>
+          }
+        />
+      )}
+
       {!loading && products && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Total Products', value: products.length, icon: Package },
-            { label: 'Total Sales', value: formatNumber(totalSales, true), icon: TrendingUp },
-            { label: 'Revenue', value: formatCurrency(totalRevenue, { compact: true }), icon: DollarSign },
-            { label: 'Avg Rating', value: `${products.length ? (products.reduce((s, p) => s + p.rating, 0) / products.length).toFixed(1) : 0}★`, icon: Star },
-          ].map((s) => {
-            const Icon = s.icon
-            return (
-              <Card key={s.label}>
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
-                  <div>
-                    <p className="text-lg font-bold tabular-nums leading-none">{s.value}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+            { title: 'Total Products', value: products.length, icon: <Package className="h-5 w-5" /> },
+            { title: 'Total Sales', value: formatNumber(totalSales, true), icon: <BarChart3 className="h-5 w-5" /> },
+            { title: 'Revenue', value: formatCurrency(totalRevenue, { compact: true }), icon: <DollarSign className="h-5 w-5" /> },
+            { title: 'Avg Rating', value: `${products.length ? (products.reduce((s, p) => s + p.rating, 0) / products.length).toFixed(1) : 0}★`, icon: <Star className="h-5 w-5" /> },
+          ].map((s) => (
+            <MetricCard key={s.title} {...s} />
+          ))}
         </div>
       )}
 
-      {/* Filter tabs */}
-      <div className="flex gap-1.5 flex-wrap">
-        {FILTERS.map((f) => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={cn('rounded-full px-3 py-1.5 text-sm font-medium transition',
-              filter === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/70')}>
-            {f === 'All' ? 'All Products' : TYPE_META[f]?.label || f}
-          </button>
-        ))}
-      </div>
+      <FilterToolbar
+        options={filterOptions}
+        onChange={handleFilterChange}
+      />
 
-      {/* Product list */}
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-72 rounded-xl" />)}
-        </div>
+        <LoadingState size="lg" text="Loading products..." />
       ) : filtered.length === 0 ? (
-        <ModuleEmptyState
-          icon={Package}
+        <EmptyState
           title={query ? 'No products match your search' : 'No products yet'}
-          hint={query ? 'Try a different search term.' : 'Create your first digital product to start selling.'}
-          action={!query && <Button size="sm" className="mt-4" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1.5" /> New Product</Button>}
+          description={query ? 'Try a different search term.' : 'Create your first digital product to start selling.'}
+          action={{
+            label: 'New Product',
+            onClick: () => setCreateOpen(true),
+          }}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((p, i) => {
+          {filtered.map((p) => {
             const tm = TYPE_META[p.type] || TYPE_META.DIGITAL
             const sm = STATUS_META[p.status] || STATUS_META.DRAFT
             const TIcon = tm.icon
             return (
-              <motion.div key={p.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-                <Card className="group overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all flex flex-col h-full">
-                  <div className={cn('relative h-32 bg-gradient-to-br cursor-pointer', tm.gradient)} onClick={() => p.status !== 'ARCHIVED' && setEditingProduct(p)}>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <TIcon className="h-12 w-12 text-foreground/30" />
-                    </div>
-                    <Badge className="absolute top-3 left-3" variant="secondary">{tm.label}</Badge>
-                    <Badge className={cn('absolute top-3 right-3 text-xs', sm.cls)} variant="secondary">{sm.label}</Badge>
+              <EntityCard
+                key={p.id}
+                id={p.id}
+                title={p.name}
+                description={p.description}
+                icon={<TIcon className="h-6 w-6" />}
+                status={p.status === 'ACTIVE' ? 'published' : p.status === 'DRAFT' ? 'draft' : 'archived'}
+                selected={selectedProducts.includes(p.id)}
+                onSelect={() => {
+                  setSelectedProducts(prev =>
+                    prev.includes(p.id) ? prev.filter(pid => pid !== p.id) : [...prev, p.id]
+                  )
+                }}
+                onClick={() => p.status !== 'ARCHIVED' && setEditingProduct(p)}
+                metadata={
+                  <div className="mt-3 flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{p.salesCount} sales</span>
+                    <span className="font-medium text-foreground">
+                      {p.price === 0 ? 'Free' : formatCurrency(p.price)}
+                    </span>
                   </div>
-                  <CardContent className="p-4 flex flex-col flex-1">
-                    <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition cursor-pointer" onClick={() => p.status !== 'ARCHIVED' && setEditingProduct(p)}>{p.name}</h3>
-                    <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2 flex-1">{p.description}</p>
-                    <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Star className="h-3 w-3 fill-amber-400 text-amber-400" />{p.rating}</span>
-                      <span className="flex items-center gap-1"><Download className="h-3 w-3" />{formatNumber(p.salesCount, true)}</span>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between border-t pt-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-bold text-primary">{p.price === 0 ? 'Free' : formatCurrency(p.price)}</span>
-                        {p.compareAt && <span className="text-xs text-muted-foreground line-through">{formatCurrency(p.compareAt)}</span>}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button size="sm" variant="ghost" className="h-8 text-xs gap-1" onClick={() => setEditingProduct(p)}>
-                          <Pencil className="h-3.5 w-3.5" /> Edit
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={actionLoading === p.id}>
-                              {actionLoading === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MoreVertical className="h-3.5 w-3.5" />}
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44">
-                            <DropdownMenuItem onClick={() => setEditingProduct(p)}><Pencil className="h-4 w-4 mr-2" /> Edit</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { toast.info('Opening preview'); setActiveModule('store') }}><Eye className="h-4 w-4 mr-2" /> Preview</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { toast.info('Viewing sales'); setActiveModule('store') }}><BarChart3 className="h-4 w-4 mr-2" /> View Sales</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => duplicateProduct(p)}><Copy className="h-4 w-4 mr-2" /> Duplicate</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => toggleArchive(p)}><Archive className="h-4 w-4 mr-2" /> {p.status === 'ARCHIVED' ? 'Restore' : 'Archive'}</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => deleteProduct(p)} className="text-rose-600"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+                }
+                actions={
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={actionLoading === p.id}>
+                        {actionLoading === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MoreVertical className="h-3.5 w-3.5" />}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem onClick={() => setEditingProduct(p)}>
+                        <Pencil className="h-4 w-4 mr-2" /> Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { toast.info('Opening preview'); setActiveModule('store') }}>
+                        <Eye className="h-4 w-4 mr-2" /> Preview
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { toast.info('Viewing sales'); setActiveModule('store') }}>
+                        <BarChart3 className="h-4 w-4 mr-2" /> View Sales
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => duplicateProduct(p)}>
+                        <Copy className="h-4 w-4 mr-2" /> Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => toggleArchive(p)}>
+                        <Archive className="h-4 w-4 mr-2" /> {p.status === 'ARCHIVED' ? 'Restore' : 'Archive'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => deleteProduct(p)} className="text-rose-600">
+                        <Trash2 className="h-4 w-4 mr-2" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                }
+              />
             )
           })}
         </div>
@@ -251,7 +301,6 @@ export function ProductsModule() {
   )
 }
 
-// ─── Product Editor ──────────────────────────────────────────────────────────
 function ProductEditor({ product, onBack }: { product: Product; onBack: () => void }) {
   const [name, setName] = useState(product.name)
   const [description, setDescription] = useState(product.description)
@@ -262,9 +311,11 @@ function ProductEditor({ product, onBack }: { product: Product; onBack: () => vo
   const [fileUrl, setFileUrl] = useState(product.fileUrl || '')
   const [status, setStatus] = useState(product.status)
   const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState<'general' | 'media' | 'downloads' | 'pricing' | 'seo'>('general')
+  const [activeTab, setActiveTab] = useState<'general' | 'media' | 'downloads' | 'pricing' | 'seo' | 'metadata' | 'versions'>('general')
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
-  const save = async () => {
+  const save = async (showToast = false) => {
     if (!name.trim()) { toast.error('Name is required'); return }
     setSaving(true)
     try {
@@ -273,7 +324,9 @@ function ProductEditor({ product, onBack }: { product: Product; onBack: () => vo
         body: JSON.stringify({ id: product.id, name: name.trim(), description, type, price: parseFloat(price) || 0, compareAt: compareAt ? parseFloat(compareAt) : null, coverUrl, fileUrl, status }),
       })
       if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Failed') }
-      toast.success('Product saved', { description: `"${name}" has been updated.` })
+      setLastSavedAt(new Date())
+      setHasUnsavedChanges(false)
+      if (showToast) toast.success('Product saved', { description: `"${name}" has been updated.` })
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setSaving(false) }
   }
 
@@ -291,137 +344,326 @@ function ProductEditor({ product, onBack }: { product: Product; onBack: () => vo
     } catch { toast.error('Failed') } finally { setSaving(false) }
   }
 
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value)
+    setHasUnsavedChanges(true)
+  }
+
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setDescription(e.target.value)
+    setHasUnsavedChanges(true)
+  }
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault()
+      save(true)
+    }
+  }
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [save])
+
+  const editorStatus: EditorStatus = status === 'ACTIVE' ? 'published' : status === 'ARCHIVED' ? 'draft' : 'draft'
+
+  const leftNavItems = [
+    { id: 'general', label: 'General', icon: <Pencil className="h-4 w-4" /> },
+    { id: 'media', label: 'Media', icon: <ImageIcon className="h-4 w-4" /> },
+    { id: 'downloads', label: 'Downloads', icon: <Download className="h-4 w-4" /> },
+    { id: 'pricing', label: 'Pricing', icon: <DollarSign className="h-4 w-4" /> },
+    { id: 'seo', label: 'SEO', icon: <Globe className="h-4 w-4" /> },
+    { id: 'metadata', label: 'Metadata', icon: <Tag className="h-4 w-4" /> },
+    { id: 'versions', label: 'Versions', icon: <Clock className="h-4 w-4" /> },
+  ] as const
+
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="h-4 w-4 mr-1.5" /> Products</Button>
-          <Badge variant="secondary" className={cn('text-xs', (STATUS_META[status] || STATUS_META.DRAFT).cls)}>{status}</Badge>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={save} disabled={saving}><Save className="h-4 w-4 mr-1.5" /> {saving ? 'Saving...' : 'Save'}</Button>
-          <Button size="sm" onClick={togglePublish} disabled={saving}>
-            {status === 'ACTIVE' ? <><Archive className="h-4 w-4 mr-1.5" /> Unpublish</> : <><Rocket className="h-4 w-4 mr-1.5" /> Publish</>}
-          </Button>
-        </div>
-      </div>
+    <div className="h-screen">
+      <EditorLayout
+        leftSidebar={{
+          title: 'Product',
+          width: 240,
+          defaultCollapsed: false,
+          children: (
+            <nav className="space-y-1 p-3">
+              {leftNavItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={cn(
+                    'w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition',
+                    activeTab === item.id
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    {item.icon}
+                    {item.label}
+                  </div>
+                </button>
+              ))}
+            </nav>
+          ),
+        }}
+        centerCanvas={
+          <div className="flex-1 overflow-y-auto scroll-thin p-6">
+            <div className="mx-auto max-w-3xl space-y-6">
+              {activeTab === 'general' && (
+                <AppCard padding="lg">
+                  <h2 className="text-xl font-semibold mb-4">General Settings</h2>
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Product name</Label>
+                      <Input
+                        value={name}
+                        onChange={handleNameChange}
+                        className="text-lg"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Description</Label>
+                      <Textarea
+                        rows={4}
+                        value={description}
+                        onChange={handleDescriptionChange}
+                        placeholder="What does this product do?"
+                      />
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-sm font-medium">Type</Label>
+                        <Select value={type} onValueChange={(v) => { setType(v); setHasUnsavedChanges(true) }}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="DIGITAL">Digital Download</SelectItem>
+                            <SelectItem value="BUNDLE">Bundle</SelectItem>
+                            <SelectItem value="COURSE">Course</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-sm font-medium">Status</Label>
+                        <Select value={status} onValueChange={(v) => { setStatus(v); setHasUnsavedChanges(true) }}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="DRAFT">Draft</SelectItem>
+                            <SelectItem value="ACTIVE">Active</SelectItem>
+                            <SelectItem value="ARCHIVED">Archived</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </AppCard>
+              )}
 
-      <div className="flex gap-1 border-b">
-        {(['general', 'media', 'downloads', 'pricing', 'seo'] as const).map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={cn('px-4 py-2 text-sm font-medium transition border-b-2 -mb-px capitalize',
-              activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
-            {tab}
-          </button>
-        ))}
-      </div>
+              {activeTab === 'media' && (
+                <AppCard padding="lg">
+                  <h2 className="text-xl font-semibold mb-4">Cover Image</h2>
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Cover image URL</Label>
+                      <Input
+                        value={coverUrl}
+                        onChange={(e) => { setCoverUrl(e.target.value); setHasUnsavedChanges(true) }}
+                        placeholder="https://..."
+                      />
+                      <p className="text-xs text-muted-foreground">Paste a direct image URL for the product cover</p>
+                    </div>
+                    {coverUrl && (
+                      <div className="rounded-lg border overflow-hidden">
+                        <img src={coverUrl} alt="Cover preview" className="w-full h-48 object-cover" />
+                      </div>
+                    )}
+                  </div>
+                </AppCard>
+              )}
 
-      {activeTab === 'general' && (
-        <Card><CardContent className="p-6 space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Product name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Description</Label>
-            <Textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What does this product do?" />
-          </div>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Type</Label>
-              <Select value={type} onValueChange={setType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DIGITAL">Digital Download</SelectItem>
-                  <SelectItem value="BUNDLE">Bundle</SelectItem>
-                  <SelectItem value="COURSE">Course</SelectItem>
-                </SelectContent>
-              </Select>
+              {activeTab === 'downloads' && (
+                <AppCard padding="lg">
+                  <h2 className="text-xl font-semibold mb-4">Download File</h2>
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Download file URL</Label>
+                      <Input
+                        value={fileUrl}
+                        onChange={(e) => { setFileUrl(e.target.value); setHasUnsavedChanges(true) }}
+                        placeholder="https://..."
+                      />
+                      <p className="text-xs text-muted-foreground">Paste the URL where customers can download the product (ZIP, PDF, etc.)</p>
+                    </div>
+                    {fileUrl && (
+                      <div className="rounded-lg border p-4 flex items-center gap-3">
+                        <Download className="h-8 w-8 text-muted-foreground" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Download file</p>
+                          <p className="text-xs text-muted-foreground truncate">{fileUrl}</p>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => window.open(fileUrl, '_blank')}>
+                          Test
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </AppCard>
+              )}
+
+              {activeTab === 'pricing' && (
+                <AppCard padding="lg">
+                  <h2 className="text-xl font-semibold mb-4">Pricing</h2>
+                  <div className="space-y-4">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-sm font-medium">Price (USD)</Label>
+                        <Input
+                          type="number"
+                          value={price}
+                          onChange={(e) => { setPrice(e.target.value); setHasUnsavedChanges(true) }}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-sm font-medium">Compare-at price</Label>
+                        <Input
+                          type="number"
+                          value={compareAt}
+                          onChange={(e) => { setCompareAt(e.target.value); setHasUnsavedChanges(true) }}
+                          placeholder="Optional"
+                        />
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-4 space-y-2">
+                      <p className="text-sm font-medium">Pricing Summary</p>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Current price</span>
+                        <span className="font-bold text-primary">
+                          {parseFloat(price) === 0 ? 'Free' : formatCurrency(parseFloat(price) || 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Total sales</span>
+                        <span>{formatNumber(product.salesCount)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Revenue</span>
+                        <span>{formatCurrency(product.revenue)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </AppCard>
+              )}
+
+              {activeTab === 'seo' && (
+                <AppCard padding="lg">
+                  <h2 className="text-xl font-semibold mb-4">SEO Settings</h2>
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">SEO title</Label>
+                      <Input
+                        defaultValue={product.name}
+                        placeholder="SEO title for search engines"
+                        onChange={(e) => setHasUnsavedChanges(true)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">SEO description</Label>
+                      <Textarea
+                        rows={2}
+                        defaultValue={product.description}
+                        placeholder="Meta description for search results"
+                        onChange={(e) => setHasUnsavedChanges(true)}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">SEO settings are saved with the product.</p>
+                  </div>
+                </AppCard>
+              )}
+
+              {activeTab === 'metadata' && (
+                <AppCard padding="lg">
+                  <h2 className="text-xl font-semibold mb-4">Metadata</h2>
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Slug</Label>
+                      <Input
+                        defaultValue={product.name.toLowerCase().replace(/\s+/g, '-')}
+                        placeholder="product-slug"
+                        onChange={(e) => setHasUnsavedChanges(true)}
+                      />
+                      <p className="text-xs text-muted-foreground">The URL-friendly name for this product.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">External reference ID</Label>
+                      <Input
+                        placeholder="Optional - e.g. SKU-001"
+                        onChange={(e) => setHasUnsavedChanges(true)}
+                      />
+                    </div>
+                  </div>
+                </AppCard>
+              )}
+
+              {activeTab === 'versions' && (
+                <AppCard padding="lg">
+                  <h2 className="text-xl font-semibold mb-4">Version History</h2>
+                  <div className="space-y-4">
+                    <div className="text-center py-8">
+                      <Clock className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                      <p className="text-sm font-medium text-muted-foreground">No versions yet</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Publish your product to create a version history.
+                      </p>
+                    </div>
+                  </div>
+                </AppCard>
+              )}
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DRAFT">Draft</SelectItem>
-                  <SelectItem value="ACTIVE">Active</SelectItem>
-                  <SelectItem value="ARCHIVED">Archived</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
-        </CardContent></Card>
-      )}
-
-      {activeTab === 'media' && (
-        <Card><CardContent className="p-6 space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Cover image URL</Label>
-            <Input value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} placeholder="https://..." />
-            <p className="text-xs text-muted-foreground">Paste a direct image URL for the product cover</p>
-          </div>
-          {coverUrl && (
-            <div className="rounded-lg border overflow-hidden">
-              <img src={coverUrl} alt="Cover preview" className="w-full h-48 object-cover" />
-            </div>
-          )}
-        </CardContent></Card>
-      )}
-
-      {activeTab === 'downloads' && (
-        <Card><CardContent className="p-6 space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Download file URL</Label>
-            <Input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} placeholder="https://..." />
-            <p className="text-xs text-muted-foreground">Paste the URL where customers can download the product (ZIP, PDF, etc.)</p>
-          </div>
-          {fileUrl && (
-            <div className="rounded-lg border p-4 flex items-center gap-3">
-              <Download className="h-8 w-8 text-muted-foreground" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">Download file</p>
-                <p className="text-xs text-muted-foreground truncate">{fileUrl}</p>
+        }
+        rightInspector={{
+          title: 'Quick Actions',
+          width: 300,
+          defaultCollapsed: true,
+          children: (
+            <div className="space-y-4 p-4">
+              <div className="space-y-2">
+                <Button className="w-full" onClick={() => save(true)} disabled={saving}>
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+                <Button variant="outline" className="w-full" onClick={() => save(false)} disabled={saving}>
+                  Save draft
+                </Button>
               </div>
-              <Button size="sm" variant="outline" onClick={() => window.open(fileUrl, '_blank')}>Test</Button>
+              <div className="border-t pt-4 space-y-2">
+                <Button
+                  className={cn('w-full', status === 'ACTIVE' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700')}
+                  onClick={togglePublish}
+                  disabled={saving}
+                >
+                  {status === 'ACTIVE' ? 'Unpublish' : 'Publish'}
+                </Button>
+              </div>
             </div>
-          )}
-        </CardContent></Card>
-      )}
-
-      {activeTab === 'pricing' && (
-        <Card><CardContent className="p-6 space-y-4">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Price (USD)</Label>
-              <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Compare-at price</Label>
-              <Input type="number" value={compareAt} onChange={(e) => setCompareAt(e.target.value)} placeholder="Optional" />
-            </div>
-          </div>
-          <div className="rounded-lg bg-muted/50 p-4 space-y-2">
-            <p className="text-sm font-medium">Pricing Summary</p>
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Current price</span><span className="font-bold text-primary">{parseFloat(price) === 0 ? 'Free' : formatCurrency(parseFloat(price) || 0)}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Total sales</span><span>{formatNumber(product.salesCount)}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Revenue</span><span>{formatCurrency(product.revenue)}</span></div>
-          </div>
-        </CardContent></Card>
-      )}
-
-      {activeTab === 'seo' && (
-        <Card><CardContent className="p-6 space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">SEO title</Label>
-            <Input defaultValue={product.name} placeholder="SEO title for search engines" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">SEO description</Label>
-            <Textarea rows={2} defaultValue={product.description} placeholder="Meta description for search results" />
-          </div>
-          <p className="text-xs text-muted-foreground">SEO settings are saved automatically with the product.</p>
-        </CardContent></Card>
-      )}
+          ),
+        }}
+        publishBar={{
+          status: editorStatus,
+          lastSaved: lastSavedAt,
+          hasChanges: hasUnsavedChanges,
+          onSave: () => save(true),
+          onPreview: () => toast.info('Preview coming soon'),
+          onPublish: togglePublish as any,
+          onUnpublish: togglePublish as any,
+          onHistory: () => toast.info('Version history coming soon'),
+          actions: [],
+        }}
+        className="h-screen"
+      />
     </div>
   )
 }

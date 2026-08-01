@@ -16,6 +16,7 @@ model User {
   bio           String?
   role          String   @default("OWNER") // global account role
   credits       Int      @default(500)
+  passwordHash  String?  // nullable for OAuth-only users
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -27,6 +28,10 @@ model User {
   aiConversations AiConversation[]
   creditTxns    CreditTransaction[]
   aiGenerations AiGeneration[]
+  sessions      Session[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+  activityLogs  ActivityLog[]
 }
 
 model Workspace {
@@ -353,7 +358,23 @@ model FeatureFlag {
   name        String
   description String   @default("")
   enabled     Boolean  @default(true)
+  workspaceId String?  // null = global flag
+  createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([workspaceId])
+  @@index([key])
+}
+
+model Cache {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @default("") // serialized value
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([expiresAt])
+  @@index([key])
 }
 
 model AdminSetting {
@@ -470,5 +491,75 @@ model SiteSetting {
   value       String   @default("")
   category    String   @default("brand") // brand | header | footer | analytics | seo | domains
   updatedAt   DateTime @updatedAt
+}
+
+// ===== Auth: Sessions, Refresh Tokens, Audit & Activity Logs =====
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  workspaceId  String?
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id           String   @id @default(cuid())
+  userId       String
+  token        String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  revokedAt    DateTime?
+  replacedById String?  // points to the next token in rotation
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedBy   RefreshToken? @relation("TokenRotation", fields: [replacedById], references: [id])
+  replacedByOf RefreshToken[] @relation("TokenRotation")
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  workspaceId String?
+  action      String   // e.g. "user.login", "course.create", "payment.refund"
+  resource    String?  // e.g. "User", "Course", "Order"
+  resourceId  String?
+  metadata    String   @default("{}") // JSON: { before, after, ip, userAgent }
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  workspaceId String?
+  action      String   // e.g. "started_editing", "saved_content", "published_course"
+  description String   @default("")
+  metadata    String   @default("{}") // JSON: { resourceId, resourceType, details }
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([userId, createdAt])
 }
 

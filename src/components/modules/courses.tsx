@@ -3,9 +3,9 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Star, Users, Clock, PlayCircle, Lock, FileText, Video, FileQuestion,
-  ArrowLeft, Plus, GraduationCap, Sparkles, CheckCircle2, Circle, BookOpen,
-  MoreVertical, Pencil, Copy, Trash2, Eye, BarChart3, Rocket, Archive, Loader2,
-  Settings, Save
+   ArrowLeft, Plus, GraduationCap, Sparkles, CheckCircle2, Circle, BookOpen,
+   MoreVertical, Pencil, Copy, Trash2, Eye, BarChart3, Rocket, Archive, Loader2,
+   Settings, Save
 } from 'lucide-react'
 import { useApi, formatCurrency, formatNumber } from '@/hooks/use-api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,7 +16,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
@@ -24,6 +23,10 @@ import { CreateDialog } from '@/components/app/create-dialog'
 import { useAppStore } from '@/store/app-store'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { StatGrid } from '@/components/ui-enterprise/StatGrid'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { EmptyState } from '@/components/ui-enterprise/EmptyState'
+import { SearchToolbar } from '@/components/ui-enterprise/SearchToolbar'
 
 interface Lesson { id: string; title: string; type: string; duration: number; isPreview: boolean; content: string }
 interface Section { id: string; title: string; position: number; lessons: Lesson[] }
@@ -80,8 +83,7 @@ export function CoursesModule() {
 
   const filtered = (courses || []).filter((c) =>
     c.title.toLowerCase().includes(query.toLowerCase()) ||
-    c.category.toLowerCase().includes(query.toLowerCase())
-  )
+    c.category.toLowerCase().includes(query.toLowerCase()))
 
   // Course actions
   const deleteCourse = async (course: Course) => {
@@ -139,59 +141,42 @@ export function CoursesModule() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex-1 max-w-md relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search courses..." className="pl-9" />
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setActiveModule('ai-studio')}>
-            <Sparkles className="h-4 w-4 mr-1.5 text-primary" /> Generate with AI
-          </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1.5" /> New Course</Button>
-        </div>
-      </div>
+       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+         <SearchToolbar
+           placeholder="Search courses..."
+           value={query}
+           onChange={(value) => setQuery(value)}
+         />
+         <div className="flex gap-2">
+           <Button variant="outline" size="sm" onClick={() => setActiveModule('ai-studio')}>
+             <Sparkles className="h-4 w-4 mr-1.5 text-primary" /> Generate with AI
+           </Button>
+           <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1.5" /> New Course</Button>
+         </div>
+       </div>
 
-      {/* Stats strip */}
-      {!loading && courses && courses.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Total Courses', value: courses.length, icon: GraduationCap },
-            { label: 'Total Students', value: formatNumber(courses.reduce((s, c) => s + c.studentsCount, 0), true), icon: Users },
-            { label: 'Avg Rating', value: `${(courses.reduce((s, c) => s + c.rating, 0) / courses.length).toFixed(1)}★`, icon: Star },
-            { label: 'Total Lessons', value: courses.reduce((s, c) => s + c.totalLessons, 0), icon: BookOpen },
-          ].map((s) => {
-            const Icon = s.icon
-            return (
-              <Card key={s.label}>
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
-                  <div>
-                    <p className="text-lg font-bold tabular-nums leading-none">{s.value}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
+       {/* Stats strip */}
+       {!loading && courses && courses.length > 0 && (
+         <StatGrid
+           columns={4}
+           items={[
+             { label: 'Total Courses', value: courses.length, icon: GraduationCap, color: 'primary' },
+             { label: 'Total Students', value: formatNumber(courses.reduce((s, c) => s + c.studentsCount, 0), true), icon: Users, color: 'success' },
+             { label: 'Avg Rating', value: `${(courses.reduce((s, c) => s + c.rating, 0) / courses.length).toFixed(1)}★`, icon: Star, color: 'warning' },
+             { label: 'Total Lessons', value: courses.reduce((s, c) => s + c.totalLessons, 0), icon: BookOpen, color: 'muted' },
+           ]}
+         />
+       )}
 
-      {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-72 rounded-xl" />)}
-        </div>
+       {loading ? (
+        <LoadingState size="lg" text="Loading courses..." />
       ) : filtered.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="p-12 flex flex-col items-center text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground mb-4">
-              <GraduationCap className="h-7 w-7" />
-            </div>
-            <p className="text-sm font-semibold">{query ? 'No courses match your search' : 'No courses yet'}</p>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs">{query ? 'Try a different search term.' : 'Create your first course to start teaching.'}</p>
-            <Button size="sm" className="mt-4" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1.5" /> New Course</Button>
-          </CardContent>
-        </Card>
+        <EmptyState
+          title={query ? 'No courses match your search' : 'No courses yet'}
+          description={query ? 'Try a different search term.' : 'Create your first course to start teaching.'}
+          icon={<GraduationCap className="h-8 w-8" />}
+          action={{ label: 'New Course', onClick: () => setCreateOpen(true) }}
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((c, i) => {

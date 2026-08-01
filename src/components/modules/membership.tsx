@@ -5,9 +5,10 @@ import { useApi, formatCurrency, formatNumber } from '@/hooks/use-api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { MetricCard } from '@/components/ui-enterprise/MetricCard'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
 
 interface Data {
   stats: { totalMembers: number; mrr: number; lifetime: number; arr: number; plans: number }
@@ -24,7 +25,7 @@ const PLAN_COLORS: Record<string, string> = {
 
 export function MembershipModule() {
   const { data, loading } = useApi<Data>('/api/data/membership')
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (loading || !data) return <LoadingState size="lg" text="Loading membership data..." />
 
   const kpis = [
     { label: 'Total Members', value: formatNumber(data.stats.totalMembers, true), icon: Users, delta: '+342' },
@@ -40,19 +41,17 @@ export function MembershipModule() {
         <Button size="sm" onClick={() => toast.success('New plan builder opened', { description: 'Set up a new membership tier.' })}><Plus className="h-4 w-4 mr-1.5" /> New Plan</Button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {kpis.map((k) => {
-          const Icon = k.icon
-          return (
-            <Card key={k.label}><CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
-                <span className="text-[11px] text-emerald-500 font-medium">{k.delta}</span>
-              </div>
-              <p className="text-2xl font-bold tabular-nums">{k.value}</p><p className="text-xs text-muted-foreground">{k.label}</p>
-            </CardContent></Card>
-          )
-        })}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {kpis.map((k) => (
+          <MetricCard
+            key={k.label}
+            title={k.label}
+            value={k.value}
+            change={k.delta}
+            changeType="increase"
+            icon={<k.icon className="h-5 w-5" />}
+          />
+        ))}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

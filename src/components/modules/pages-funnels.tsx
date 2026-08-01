@@ -17,12 +17,18 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { useApi, formatNumber, timeAgo } from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/app-store'
+import { EditorLayout } from '@/components/editor/EditorLayout'
+import { EmptyState } from '@/components/ui-enterprise/EmptyState'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { AppCard } from '@/components/ui-enterprise/AppCard'
+import type { EditorStatus } from '@/components/editor/EditorLayout'
 
 type SubTab = 'pages' | 'landing' | 'funnels' | 'navigation' | 'blog' | 'domains' | 'seo' | 'settings'
 
@@ -103,10 +109,9 @@ function PagesList({ type, onEdit, onGenerate }: { type: string; onEdit: (p: { i
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') }
   }
 
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (loading || !data) return <LoadingState size="lg" text="Loading pages..." />
 
   const STATUS_CLS: Record<string, string> = { PUBLISHED: 'bg-emerald-500/10 text-emerald-600', DRAFT: 'bg-amber-500/10 text-amber-600', SCHEDULED: 'bg-sky-500/10 text-sky-600' }
-
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -293,121 +298,284 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
 
   const publish = async () => { setBusy('publish'); try { toast.success('Page published', { description: 'Your changes are now live.' }); } finally { setBusy(null) } }
 
-  if (loading || !pageData) return <Skeleton className="h-96 rounded-xl" />
+  const [leftOpen, setLeftOpen] = useState(true)
+  const [rightOpen, setRightOpen] = useState(true)
+
+  if (loading || !pageData) return <LoadingState size="lg" text="Loading page editor..." />
+
+  const editorStatus: EditorStatus = pageData.status === 'PUBLISHED' ? 'published' : 'draft'
 
   return (
-    <div className="space-y-3">
-      {/* Toolbar */}
-      <Card>
-        <CardContent className="p-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="h-4 w-4 mr-1.5" />Pages</Button>
-            <div className="h-6 w-px bg-border" />
-            <div><p className="text-sm font-semibold">{pageData.title}</p><p className="text-[10px] text-muted-foreground">creatoros.io/{pageData.slug}</p></div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className={cn('text-[10px]', pageData.status === 'PUBLISHED' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600')}>{pageData.status}</Badge>
-            <Button size="sm" variant="outline" onClick={() => toast.info('Preview opened in new tab')}><Eye className="h-3.5 w-3.5 mr-1.5" />Preview</Button>
-            <Button size="sm" onClick={publish} disabled={busy === 'publish'}><Globe className="h-3.5 w-3.5 mr-1.5" />Publish</Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-        {/* Section list (vertical, no canvas) */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold">Sections <span className="text-muted-foreground font-normal">({pageData.sections.length})</span></p>
-            <Button size="sm" variant="outline" onClick={() => setShowAddPanel(true)}><Plus className="h-3.5 w-3.5 mr-1.5" />Add Section</Button>
-          </div>
-
-          {pageData.sections.length === 0 ? (
-            <Card><CardContent className="p-12 text-center"><Layout className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" /><p className="text-sm font-medium">No sections yet</p><p className="text-xs text-muted-foreground mt-1">Add your first section to start building.</p><Button size="sm" className="mt-3" onClick={() => setShowAddPanel(true)}><Plus className="h-3.5 w-3.5 mr-1.5" />Add section</Button></CardContent></Card>
-          ) : (
-            <div className="space-y-1.5">
-              {pageData.sections.map((s, i) => {
-                const meta = SECTION_TYPES.find((t) => t.type === s.type)
-                const Icon = meta?.icon || Layout
-                const isSelected = selectedSection?.id === s.id
-                return (
-                  <motion.div key={s.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}>
-                    <Card className={cn('transition-all', isSelected && 'ring-2 ring-primary', s.isHidden && 'opacity-50')}>
-                      <CardContent className="p-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground w-5 text-center">{i + 1}</span>
-                          <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg', isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}><Icon className="h-4 w-4" /></div>
-                          <button className="flex-1 text-left min-w-0" onClick={() => setSelectedSection(isSelected ? null : s)}>
-                            <p className="text-sm font-medium truncate">{meta?.name || s.type}</p>
-                            <p className="text-[10px] text-muted-foreground truncate">{getSectionPreview(s)}</p>
-                          </button>
-                          <div className="flex items-center gap-0.5">
-                            <IconBtn icon={ArrowUp} onClick={() => moveSection(s.id, 'moveUp')} disabled={busy === s.id + 'moveUp' || i === 0} title="Move up" />
-                            <IconBtn icon={ArrowDown} onClick={() => moveSection(s.id, 'moveDown')} disabled={busy === s.id + 'moveDown' || i === pageData.sections.length - 1} title="Move down" />
-                            <IconBtn icon={Copy} onClick={() => duplicateSection(s.id)} disabled={busy === s.id} title="Duplicate" />
-                            <IconBtn icon={s.isHidden ? EyeOff : Eye} onClick={() => toggleHide(s)} disabled={busy === s.id} title={s.isHidden ? 'Show' : 'Hide'} active={s.isHidden} />
-                            <IconBtn icon={Trash2} onClick={() => deleteSection(s.id)} disabled={busy === s.id} title="Delete" danger />
+    <div className="h-screen">
+      <EditorLayout
+        leftSidebar={{
+          title: 'Navigator',
+          width: 280,
+          defaultCollapsed: false,
+          children: (
+            <>
+              <div className="p-3 border-b">
+                <Button size="sm" variant="outline" className="w-full" onClick={() => setShowAddPanel(true)}>
+                  <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Section
+                </Button>
+              </div>
+              <div className="flex-1 overflow-y-auto scroll-thin min-h-0">
+                <div className="p-3 space-y-2">
+                  {pageData.sections.length === 0 ? (
+                    <EmptyState
+                      title="No sections"
+                      description="Add your first section to start building."
+                      icon={<Layout className="h-8 w-8" />}
+                    />
+                  ) : (
+                    pageData.sections.map((s, i) => {
+                      const meta = SECTION_TYPES.find((t) => t.type === s.type)
+                      const Icon = meta?.icon || Layout
+                      const isSelected = selectedSection?.id === s.id
+                      return (
+                        <motion.div
+                          key={s.id}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.02 }}
+                        >
+                          <div
+                            className={cn(
+                              'rounded-lg border p-3 cursor-pointer transition-all',
+                              isSelected && 'ring-2 ring-primary bg-primary/5',
+                              s.isHidden && 'opacity-50',
+                            )}
+                            onClick={() => setSelectedSection(isSelected ? null : s)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground w-5 text-center">{i + 1}</span>
+                              <div
+                                className={cn(
+                                  'flex h-8 w-8 items-center justify-center rounded-lg',
+                                  isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+                                )}
+                              >
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{meta?.name || s.type}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">
+                                  {getSectionPreview(s)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-0.5 mt-1.5">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  moveSection(s.id, 'moveUp')
+                                }}
+                                disabled={busy === s.id + 'moveUp' || i === 0}
+                                className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                title="Move up"
+                              >
+                                <ArrowUp className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  moveSection(s.id, 'moveDown')
+                                }}
+                                disabled={busy === s.id + 'moveDown' || i === pageData.sections.length - 1}
+                                className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                title="Move down"
+                              >
+                                <ArrowDown className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  duplicateSection(s.id)
+                                }}
+                                disabled={busy === s.id}
+                                className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                title="Duplicate"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  toggleHide(s)
+                                }}
+                                disabled={busy === s.id}
+                                className={cn(
+                                  'p-1 transition',
+                                  s.isHidden ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+                                )}
+                                title={s.isHidden ? 'Show' : 'Hide'}
+                              >
+                                {s.isHidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  deleteSection(s.id)
+                                }}
+                                disabled={busy === s.id}
+                                className="p-1 text-rose-500 hover:text-rose-600 disabled:opacity-30"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-1 mt-1.5 flex-wrap pl-1">
+                              <button
+                                onClick={() => setSelectedSection(s)}
+                                className={cn(
+                                  'rounded px-2 py-0.5 text-[10px] font-medium transition',
+                                  isSelected
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'text-muted-foreground hover:bg-muted',
+                                )}
+                              >
+                                <Pencil className="h-2.5 w-2.5 inline mr-0.5" />
+                                Edit
+                              </button>
+                              <AIChip label="Rewrite" loading={busy === s.id + 'REWRITE'} onClick={() => aiAction(s, 'REWRITE')} />
+                              <AIChip label="Improve" loading={busy === s.id + 'IMPROVE'} onClick={() => aiAction(s, 'IMPROVE')} />
+                              <AIChip label="Shorten" loading={busy === s.id + 'SHORTEN'} onClick={() => aiAction(s, 'SHORTEN')} />
+                              <AIChip label="Expand" loading={busy === s.id + 'EXPAND'} onClick={() => aiAction(s, 'EXPAND')} />
+                              <AIChip label="Translate" loading={busy === s.id + 'TRANSLATE'} onClick={() => aiAction(s, 'TRANSLATE')} />
+                            </div>
                           </div>
-                        </div>
-                        {/* AI actions row */}
-                        <div className="flex items-center gap-1 mt-2 pl-9 flex-wrap">
-                          <button onClick={() => setSelectedSection(s)} className={cn('rounded px-2 py-0.5 text-[10px] font-medium transition', isSelected ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted')}><Pencil className="h-2.5 w-2.5 inline mr-0.5" />Edit</button>
-                          <AIChip label="Rewrite" loading={busy === s.id + 'REWRITE'} onClick={() => aiAction(s, 'REWRITE')} />
-                          <AIChip label="Improve" loading={busy === s.id + 'IMPROVE'} onClick={() => aiAction(s, 'IMPROVE')} />
-                          <AIChip label="Shorten" loading={busy === s.id + 'SHORTEN'} onClick={() => aiAction(s, 'SHORTEN')} />
-                          <AIChip label="Expand" loading={busy === s.id + 'EXPAND'} onClick={() => aiAction(s, 'EXPAND')} />
-                          <AIChip label="Translate" loading={busy === s.id + 'TRANSLATE'} onClick={() => aiAction(s, 'TRANSLATE')} />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
+                        </motion.div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t p-4 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">SEO</p>
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Title:</span>{' '}
+                  <span className="font-medium">{pageData.seoTitle || '(not set)'}</span>
+                </div>
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Description:</span>{' '}
+                  <span className="text-muted-foreground">{pageData.seoDescription || '(not set)'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 pt-1">
+                  <Badge variant="secondary" className="text-[9px]">
+                    OpenGraph
+                  </Badge>
+                  <Badge variant="secondary" className="text-[9px]">
+                    Schema
+                  </Badge>
+                  <Badge variant="secondary" className="text-[9px]">
+                    Twitter Cards
+                  </Badge>
+                </div>
+              </div>
+            </>
+          ),
+        }}
+        centerCanvas={
+          <div className="flex-1 overflow-y-auto scroll-thin min-w-0">
+            <div className="p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold">{pageData.title}</h2>
+                  <p className="text-xs text-muted-foreground">
+                    creatoros.io/{pageData.slug}
+                  </p>
+                </div>
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    'text-xs',
+                    pageData.status === 'PUBLISHED'
+                      ? 'bg-emerald-500/10 text-emerald-600'
+                      : 'bg-amber-500/10 text-amber-600',
+                  )}
+                >
+                  {pageData.status}
+                </Badge>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => toast.info('Preview opened in new tab')}>
+                  <Eye className="h-3.5 w-3.5 mr-1.5" />
+                  Preview
+                </Button>
+                <Button size="sm" onClick={publish} disabled={busy === 'publish'}>
+                  <Globe className="h-3.5 w-3.5 mr-1.5" />
+                  Publish
+                </Button>
+              </div>
+            </div>
+          </div>
+        }
+        rightInspector={{
+          title: 'Section Settings',
+          width: 360,
+          defaultCollapsed: true,
+          children: (
+            <div className="flex-1 overflow-y-auto scroll-thin min-h-0">
+              {selectedSection ? (
+                <SectionSettingsPanel
+                  section={selectedSection}
+                  onUpdate={(c) => {
+                    updateSection(selectedSection.id, c)
+                    setSelectedSection({ ...selectedSection, content: c })
+                  }}
+                />
+              ) : (
+                <div className="p-6 text-center">
+                  <Pencil className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-sm font-medium">Section settings</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Click any section to edit its content, or use AI actions to rewrite it.
+                  </p>
+                </div>
+              )}
+            </div>
+          ),
+        }}
+        leftCollapsed={!leftOpen}
+        rightCollapsed={!rightOpen}
+        onLeftToggle={(collapsed) => setLeftOpen(!collapsed)}
+        onRightToggle={(collapsed) => setRightOpen(!collapsed)}
+        publishBar={{
+          status: editorStatus,
+          onSave: () => publish(),
+          onPreview: () => toast.info('Preview opened in new tab'),
+          onPublish: publish,
+        }}
+      >
+        <Dialog open={showAddPanel} onOpenChange={setShowAddPanel}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Add a section</DialogTitle>
+              <DialogDescription>Choose a section type to add to your page.</DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 py-2">
+              {SECTION_TYPES.map((t) => {
+                const Icon = t.icon
+                return (
+                  <button
+                    key={t.type}
+                    onClick={() => addSection(t.type)}
+                    disabled={busy === 'add'}
+                    className="group flex flex-col items-start gap-1.5 rounded-xl border p-3 hover:border-primary/40 hover:bg-primary/5 transition disabled:opacity-50"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary group-hover:scale-110 transition">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <p className="text-xs font-medium">{t.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{t.desc}</p>
+                  </button>
                 )
               })}
             </div>
-          )}
-
-          {/* SEO summary */}
-          <Card className="mt-3">
-            <CardHeader className="pb-2"><CardTitle className="text-xs flex items-center gap-1.5"><SearchIcon className="h-3.5 w-3.5 text-primary" />SEO</CardTitle></CardHeader>
-            <CardContent className="space-y-1.5 text-xs">
-              <div><span className="text-muted-foreground">Title:</span> <span className="font-medium">{pageData.seoTitle || '(not set)'}</span></div>
-              <div><span className="text-muted-foreground">Description:</span> <span className="text-muted-foreground">{pageData.seoDescription || '(not set)'}</span></div>
-              <div className="flex items-center gap-1.5 pt-1"><Badge variant="secondary" className="text-[9px]">OpenGraph</Badge><Badge variant="secondary" className="text-[9px]">Schema</Badge><Badge variant="secondary" className="text-[9px]">Twitter Cards</Badge></div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right-side settings panel */}
-        <div className="lg:sticky lg:top-4 h-fit">
-          {selectedSection ? (
-            <SectionSettingsPanel section={selectedSection} onUpdate={(c) => { updateSection(selectedSection.id, c); setSelectedSection({ ...selectedSection, content: c }) }} />
-          ) : (
-            <Card><CardContent className="p-6 text-center"><Pencil className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" /><p className="text-sm font-medium">Section settings</p><p className="text-xs text-muted-foreground mt-1">Click any section to edit its content, or use AI actions to rewrite it.</p></CardContent></Card>
-          )}
-        </div>
-      </div>
-
-      {/* Add section panel */}
-      <AnimatePresence>
-        {showAddPanel && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowAddPanel(false)}>
-            <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl">
-              <Card><CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">Add a section</CardTitle><Button variant="ghost" size="icon" onClick={() => setShowAddPanel(false)}>✕</Button></CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {SECTION_TYPES.map((t) => { const Icon = t.icon; return (
-                      <button key={t.type} onClick={() => addSection(t.type)} disabled={busy === 'add'} className="group flex flex-col items-start gap-1.5 rounded-xl border p-3 hover:border-primary/40 hover:bg-primary/5 transition disabled:opacity-50">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary group-hover:scale-110 transition"><Icon className="h-4 w-4" /></div>
-                        <p className="text-xs font-medium">{t.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{t.desc}</p>
-                      </button>
-                    )})}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </DialogContent>
+        </Dialog>
+      </EditorLayout>
     </div>
   )
 }
@@ -536,7 +704,7 @@ function FunnelsPanel() {
   const [newDesc, setNewDesc] = useState('')
   const [creating, setCreating] = useState(false)
 
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (loading || !data) return <LoadingState size="lg" text="Loading funnels..." />
   const STEP_ICONS: Record<string, React.ComponentType<{ className?: string }>> = { LANDING: Rocket, CHECKOUT: ShoppingCart, UPSELL: TrendingUp, DOWNSELL: TrendingUp, THANK_YOU: Check, EMAIL: Mail, COMMUNITY_INVITE: Users, COURSE_ACCESS: FileText }
 
   const createFunnel = async () => {
@@ -647,7 +815,7 @@ function BlogPanel() {
   const { data, loading, refetch } = useApi<{ posts: BlogPost[]; stats: { total: number; published: number; drafts: number; totalVisits: number } }>('/api/data/blog')
   const [editing, setEditing] = useState<BlogPost | 'new' | null>(null)
 
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (loading || !data) return <LoadingState size="lg" text="Loading blog..." />
 
   if (editing) {
     return <BlogEditor post={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refetch() }} />
@@ -833,7 +1001,7 @@ function SiteSettingsPanel() {
   const { data, loading, refetch } = useApi<{ settings: { id: string; key: string; value: unknown; category: string }[] }>('/api/data/site-settings')
   const [edits, setEdits] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState<string | null>(null)
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (loading || !data) return <LoadingState size="lg" text="Loading settings..." />
 
   const byCat = (cat: string) => data.settings.filter((s) => s.category === cat)
   const getVal = (k: string) => edits[k] !== undefined ? edits[k] : data.settings.find((s) => s.key === k)?.value

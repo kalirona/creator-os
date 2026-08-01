@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { createRequestContext } from '@/lib/context'
+import { customerService } from '@/lib/services'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const customers = await db.customer.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    })
+    const ctx = await createRequestContext()
+    const customers = await customerService.list(ctx)
     return NextResponse.json({
       customers: customers.map((c) => ({
         id: c.id, name: c.name, email: c.email, tags: c.tags.split(',').filter(Boolean),
@@ -22,7 +21,9 @@ export async function GET() {
       },
     })
   } catch (e) {
-    console.error('Customers error:', e)
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
   }
 }

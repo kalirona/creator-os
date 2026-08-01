@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
@@ -17,7 +16,10 @@ import { useAppStore } from '@/store/app-store'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/hooks/use-api'
-import { ApiErrorBanner, ModuleEmptyState } from '@/components/modules/_state-utils'
+import { EmptyState } from '@/components/ui-enterprise/EmptyState'
+import { MetricCard } from '@/components/ui-enterprise/MetricCard'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { ErrorState } from '@/components/ui-enterprise/ErrorState'
 
 interface Campaign {
   id: string; name: string; subject: string; previewText?: string; body?: string;
@@ -50,8 +52,8 @@ export function EmailModule() {
   const [testOpen, setTestOpen] = useState<string | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
 
-  if (error) return <ApiErrorBanner message={error} onRetry={refetch} />
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (error) return <ErrorState title="Failed to load email data" description={error} action={{ label: 'Retry', onClick: refetch }} />
+  if (loading || !data) return <LoadingState size="lg" text="Loading campaigns..." />
 
   const kpis = [
     { label: 'Subscribers', value: formatNumber(data.stats.subscribers, true), icon: Users, delta: '+342 this week' },
@@ -112,27 +114,24 @@ export function EmailModule() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {kpis.map((k) => {
-          const Icon = k.icon
-          return (
-            <Card key={k.label}><CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
-                <span className="text-xs text-muted-foreground">{k.delta}</span>
-              </div>
-              <p className="text-2xl font-bold tabular-nums">{k.value}</p>
-              <p className="text-xs text-muted-foreground">{k.label}</p>
-            </CardContent></Card>
-          )
-        })}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {kpis.map((k) => (
+          <MetricCard
+            key={k.label}
+            title={k.label}
+            value={k.value}
+            change={k.delta}
+            changeType="increase"
+            icon={<k.icon className="h-5 w-5" />}
+          />
+        ))}
       </div>
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Campaigns</CardTitle></CardHeader>
         <CardContent className="space-y-1.5">
           {data.campaigns.length === 0 ? (
-            <ModuleEmptyState icon={Mail} title="No campaigns yet" hint="Create your first broadcast, automation, or sequence to start engaging your audience." />
+            <EmptyState title="No campaigns yet" description="Create your first broadcast, automation, or sequence to start engaging your audience." />
           ) : data.campaigns.map((c, i) => {
             const tm = TYPE_META[c.type] || TYPE_META.BROADCAST
             const sm = STATUS_META[c.status] || STATUS_META.DRAFT

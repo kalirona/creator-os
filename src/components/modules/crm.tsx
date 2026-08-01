@@ -1,17 +1,18 @@
 'use client'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, DollarSign, Users, TrendingUp, RotateCcw, Mail, Tag, Activity, ArrowUpRight } from 'lucide-react'
+import { DollarSign, Users, TrendingUp, RotateCcw, Mail, Tag, Activity, ArrowUpRight } from 'lucide-react'
 import { useApi, formatCurrency, formatNumber, timeAgo } from '@/hooks/use-api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { MetricCard } from '@/components/ui-enterprise/MetricCard'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
+import { SearchToolbar } from '@/components/ui-enterprise/SearchToolbar'
 
 interface Data {
   stats: { totalRevenue: number; avgLtv: number; totalCustomers: number; activeCustomers: number; churned: number; totalOrders: number; refunded: number }
@@ -33,7 +34,7 @@ export function CrmModule() {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Data['customers'][0] | null>(null)
 
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (loading || !data) return <LoadingState size="lg" text="Loading CRM data..." />
 
   const filteredCustomers = data.customers.filter((c) =>
     c.name.toLowerCase().includes(query.toLowerCase()) || c.email.toLowerCase().includes(query.toLowerCase()))
@@ -47,20 +48,17 @@ export function CrmModule() {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {kpis.map((k) => {
-          const Icon = k.icon
-          return (
-            <Card key={k.label}><CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
-                <span className="text-[11px] text-muted-foreground">{k.delta}</span>
-              </div>
-              <p className="text-2xl font-bold tabular-nums">{k.value}</p>
-              <p className="text-xs text-muted-foreground">{k.label}</p>
-            </CardContent></Card>
-          )
-        })}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {kpis.map((k) => (
+          <MetricCard
+            key={k.label}
+            title={k.label}
+            value={k.value}
+            change={k.delta}
+            changeType="increase"
+            icon={<k.icon className="h-5 w-5" />}
+          />
+        ))}
       </div>
 
       <Tabs defaultValue="customers">
@@ -69,12 +67,9 @@ export function CrmModule() {
           <TabsTrigger value="orders">Orders</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="customers" className="space-y-4">
+          <TabsContent value="customers" className="space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex-1 max-w-md relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search customers..." className="pl-9" />
-            </div>
+            <SearchToolbar placeholder="Search customers..." value={query} onChange={(value) => setQuery(value)} />
             <Button size="sm" onClick={() => toast.success('Add customer form opened', { description: 'Manually add a customer to your CRM.' })}><Users className="h-4 w-4 mr-1.5" /> Add Customer</Button>
           </div>
           <div className="grid gap-4 lg:grid-cols-[1fr_320px]">

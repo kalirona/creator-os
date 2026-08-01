@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createRequestContext } from '@/lib/context'
 import { db } from '@/lib/db'
+import { logAuditEvent } from '@/lib/logging'
+
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const funnels = await db.funnel.findMany({ orderBy: { createdAt: 'desc' }, include: { steps: { orderBy: { position: 'asc' }, include: { page: { select: { id: true, title: true, slug: true } } } } } })
+    const ctx = await createRequestContext()
+    const funnels = await db.funnel.findMany({
+      where: { workspaceId: ctx.workspace.id },
+      orderBy: { createdAt: 'desc' },
+      include: { steps: { orderBy: { position: 'asc' }, include: { page: { select: { id: true, title: true, slug: true } } } } },
+    })
     return NextResponse.json({
       funnels: funnels.map((f) => ({
         id: f.id, name: f.name, description: f.description, type: f.type, status: f.status,
@@ -19,25 +27,24 @@ export async function GET() {
       },
     })
   } catch (e) {
-    console.error('Funnels error:', e)
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
   }
 }
 
-// POST — create funnel
 export async function POST(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const body = await req.json()
     const { name, description, type } = body
 
     if (!name || !name.trim()) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
 
-    const workspace = await db.workspace.findFirst()
-    if (!workspace) return NextResponse.json({ error: 'No workspace found' }, { status: 400 })
-
     const funnel = await db.funnel.create({
       data: {
-        workspaceId: workspace.id,
+        workspaceId: ctx.workspace.id,
         name: name.trim(),
         description: description || '',
         type: type || 'SALES',
@@ -45,21 +52,30 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    await logAuditEvent('funnel.create', {
+      userId: ctx.user.id,
+      workspaceId: ctx.workspace.id,
+      resource: 'Funnel',
+      resourceId: funnel.id,
+    })
+
     return NextResponse.json({ success: true, funnel: { id: funnel.id, name: funnel.name } })
   } catch (e) {
-    console.error('Funnel create error:', e)
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
   }
 }
 
-// PUT — update funnel
 export async function PUT(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const body = await req.json()
     const { id, name, description, type, status } = body
 
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
-    const existing = await db.funnel.findUnique({ where: { id } })
+    const existing = await db.funnel.findFirst({ where: { id, workspaceId: ctx.workspace.id } })
     if (!existing) return NextResponse.json({ error: 'Funnel not found' }, { status: 404 })
 
     const data: Record<string, unknown> = {}
@@ -71,25 +87,29 @@ export async function PUT(req: NextRequest) {
     const funnel = await db.funnel.update({ where: { id }, data })
     return NextResponse.json({ success: true, funnel: { id: funnel.id, name: funnel.name, status: funnel.status } })
   } catch (e) {
-    console.error('Funnel update error:', e)
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
   }
 }
 
-// DELETE — delete funnel
 export async function DELETE(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
-    const existing = await db.funnel.findUnique({ where: { id } })
+    const existing = await db.funnel.findFirst({ where: { id, workspaceId: ctx.workspace.id } })
     if (!existing) return NextResponse.json({ error: 'Funnel not found' }, { status: 404 })
 
     await db.funnel.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (e) {
-    console.error('Funnel delete error:', e)
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
   }
 }

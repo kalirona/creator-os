@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createRequestContext } from '@/lib/context'
+import { emailService } from '@/lib/services'
 import { db } from '@/lib/db'
+import { logAuditEvent } from '@/lib/logging'
+
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const campaigns = await db.emailCampaign.findMany({ orderBy: { createdAt: 'desc' }, take: 100 })
-    const subscribers = 12400
+    const ctx = await createRequestContext()
+    const campaigns = await emailService.list(ctx)
     const sent = campaigns.filter((c) => c.status === 'SENT')
     const totalSent = sent.reduce((s, c) => s + c.recipients, 0)
     const avgOpen = sent.length ? sent.reduce((s, c) => s + c.openRate, 0) / sent.length : 0
     const avgClick = sent.length ? sent.reduce((s, c) => s + c.clickRate, 0) / sent.length : 0
     return NextResponse.json({
-      stats: { subscribers, campaigns: campaigns.length, totalSent, avgOpen, avgClick },
+      stats: { subscribers: 12400, campaigns: campaigns.length, totalSent, avgOpen, avgClick },
       campaigns: campaigns.map((c) => ({
         id: c.id, name: c.name, subject: c.subject, previewText: c.previewText, body: c.body,
         type: c.type, status: c.status, audience: c.audience,
@@ -20,14 +24,16 @@ export async function GET() {
       })),
     })
   } catch (e) {
-    console.error('Email list error:', e)
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
   }
 }
 
-// POST — create campaign
 export async function POST(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const body = await req.json()
     const { name, subject, previewText, body: emailBody, type, audience } = body
 
@@ -40,13 +46,9 @@ export async function POST(req: NextRequest) {
     const campaignType = validTypes.includes(type) ? type : 'BROADCAST'
     const campaignAudience = validAudiences.includes(audience) ? audience : 'ALL'
 
-    // Get first workspace for demo
-    const workspace = await db.workspace.findFirst()
-    if (!workspace) return NextResponse.json({ error: 'No workspace found' }, { status: 400 })
-
     const campaign = await db.emailCampaign.create({
       data: {
-        workspaceId: workspace.id,
+        workspaceId: ctx.workspace.id,
         name: name.trim(),
         subject: subject.trim(),
         previewText: previewText || '',
@@ -60,21 +62,30 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    await logAuditEvent('email_campaign.create', {
+      userId: ctx.user.id,
+      workspaceId: ctx.workspace.id,
+      resource: 'EmailCampaign',
+      resourceId: campaign.id,
+    })
+
     return NextResponse.json({ success: true, campaign: { id: campaign.id, name: campaign.name, status: campaign.status } })
   } catch (e) {
-    console.error('Email create error:', e)
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
   }
 }
 
-// PUT — update campaign
 export async function PUT(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const body = await req.json()
     const { id, name, subject, previewText, body: emailBody, type, audience, status, scheduledAt } = body
 
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
-    const existing = await db.emailCampaign.findUnique({ where: { id } })
+    const existing = await db.emailCampaign.findFirst({ where: { id, workspaceId: ctx.workspace.id } })
     if (!existing) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
     const data: Record<string, unknown> = {}
@@ -103,25 +114,29 @@ export async function PUT(req: NextRequest) {
     const campaign = await db.emailCampaign.update({ where: { id }, data })
     return NextResponse.json({ success: true, campaign: { id: campaign.id, name: campaign.name, status: campaign.status } })
   } catch (e) {
-    console.error('Email update error:', e)
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
   }
 }
 
-// DELETE — delete campaign
 export async function DELETE(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
-    const existing = await db.emailCampaign.findUnique({ where: { id } })
+    const existing = await db.emailCampaign.findFirst({ where: { id, workspaceId: ctx.workspace.id } })
     if (!existing) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
     await db.emailCampaign.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (e) {
-    console.error('Email delete error:', e)
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
   }
 }

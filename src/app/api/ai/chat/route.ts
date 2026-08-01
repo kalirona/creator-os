@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
+import { createRequestContext } from '@/lib/context'
 import { db } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
@@ -26,6 +27,7 @@ const CREDIT_COSTS: Record<string, number> = {
 
 export async function POST(req: NextRequest) {
   try {
+    const ctx = await createRequestContext()
     const body = await req.json()
     const { tool = 'CHAT', messages = [] } = body as { tool?: string; messages?: ChatMessage[] }
 
@@ -48,11 +50,10 @@ export async function POST(req: NextRequest) {
     const content = completion.choices[0]?.message?.content || ''
 
     try {
-      const user = await db.user.findFirst({ orderBy: { createdAt: 'asc' } })
-      if (user) {
-        await db.user.update({ where: { id: user.id }, data: { credits: { decrement: cost } } })
+      if (ctx.user.credits >= cost) {
+        await db.user.update({ where: { id: ctx.user.id }, data: { credits: { decrement: cost } } })
         await db.creditTransaction.create({
-          data: { userId: user.id, amount: -cost, reason: `AI ${tool}` },
+          data: { userId: ctx.user.id, amount: -cost, reason: `AI ${tool}` },
         })
       }
     } catch {
@@ -61,6 +62,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ content, creditsUsed: cost, model: 'zai-glm' })
   } catch (e) {
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     console.error('AI chat error:', e)
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'AI request failed' },

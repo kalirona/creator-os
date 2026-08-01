@@ -7,10 +7,11 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Skeleton } from '@/components/ui/skeleton'
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
+import { MetricCard } from '@/components/ui-enterprise/MetricCard'
+import { LoadingState } from '@/components/ui-enterprise/LoadingState'
 
 interface Data {
   stats: { totalEarnings: number; totalClicks: number; totalConversions: number; affiliates: number; avgConversionRate: number; pendingPayouts: number }
@@ -21,7 +22,7 @@ export function AffiliatesModule() {
   const { data, loading } = useApi<Data>('/api/data/affiliates')
   const [copied, setCopied] = useState<string | null>(null)
 
-  if (loading || !data) return <Skeleton className="h-96 rounded-xl" />
+  if (loading || !data) return <LoadingState size="lg" text="Loading affiliate data..." />
 
   const copy = (code: string) => {
     navigator.clipboard.writeText(`https://creatoros.io/r/${code}`)
@@ -58,20 +59,17 @@ export function AffiliatesModule() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {kpis.map((k) => {
-          const Icon = k.icon
-          return (
-            <Card key={k.label}><CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
-                <span className="text-[11px] text-emerald-500 font-medium flex items-center gap-0.5"><TrendingUp className="h-3 w-3" />{k.delta}</span>
-              </div>
-              <p className="text-2xl font-bold tabular-nums">{k.value}</p>
-              <p className="text-xs text-muted-foreground">{k.label}</p>
-            </CardContent></Card>
-          )
-        })}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {kpis.map((k) => (
+          <MetricCard
+            key={k.label}
+            title={k.label}
+            value={k.value}
+            change={k.delta}
+            changeType="increase"
+            icon={<k.icon className="h-5 w-5" />}
+          />
+        ))}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
