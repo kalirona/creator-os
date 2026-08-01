@@ -332,7 +332,7 @@ async function seed() {
   // Website builder blocks — seed a sample homepage
   const homepage = await db.webPage.findFirst({ where: { slug: 'home' } })
   if (homepage) {
-    await db.webPageBlock.deleteMany({ where: { pageId: homepage.id } })
+    await db.pageSection.deleteMany({ where: { pageId: homepage.id } })
     const blocks = [
       { type: 'HERO', content: JSON.stringify({ headline: 'Build your creator empire, all in one place', subheadline: 'Courses, products, community, email, and AI — everything you need to turn your audience into a business.', ctaText: 'Start free', ctaSecondary: 'Watch demo', emoji: '🚀' }), position: 0 },
       { type: 'FEATURES', content: JSON.stringify({ heading: 'Everything in one platform', subheading: 'Stop juggling 12 tools. CreatorOS brings it all together.', items: [{ icon: '🎓', title: 'Courses', description: 'Build and sell unlimited courses with drip content and certificates.' }, { icon: '📦', title: 'Digital Products', description: 'Sell templates, downloads, and bundles with instant delivery.' }, { icon: '👥', title: 'Community', description: 'A thriving paid community that keeps members engaged.' }, { icon: '✉️', title: 'Email Marketing', description: 'Broadcasts, automations, and sequences that convert.' }, { icon: '🤝', title: 'Affiliates', description: 'Let your fans sell for you with a built-in affiliate program.' }, { icon: '✨', title: 'AI Studio', description: 'Generate courses, emails, and content 10x faster with AI.' }] }), position: 1 },
@@ -341,7 +341,7 @@ async function seed() {
       { type: 'CTA', content: JSON.stringify({ headline: 'Ready to build your creator business?', subtext: 'Join 10,000+ creators using CreatorOS. No credit card required.', ctaText: 'Start free today' }), position: 4 },
     ]
     for (const b of blocks) {
-      await db.webPageBlock.create({ data: { pageId: homepage.id, type: b.type, content: b.content, position: b.position } })
+      await db.pageSection.create({ data: { pageId: homepage.id, type: b.type, content: b.content, position: b.position } })
     }
     console.log(`   ✓ ${blocks.length} website blocks seeded for homepage`)
   }
@@ -353,7 +353,7 @@ async function seed() {
     tools: await db.aiTool.count(),
     flags: await db.featureFlag.count(),
     settings: await db.adminSetting.count(),
-    blocks: await db.webPageBlock.count(),
+    sections: await db.pageSection.count(),
   }
   console.log('   Counts:', counts)
 }
