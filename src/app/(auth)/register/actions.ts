@@ -55,7 +55,7 @@ export const register = validatedAction(registerSchema, async (data) => {
   cookieStore.set(authConfig.cookieName, token, {
     maxAge: authConfig.sessionMaxAge,
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: authConfig.cookieSecure,
     sameSite: 'lax',
   })
 

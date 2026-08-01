@@ -28,7 +28,7 @@ export async function updateSession(request: NextRequest) {
     response.cookies.set(authConfig.cookieName, newToken, {
       maxAge: authConfig.sessionMaxAge,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: authConfig.cookieSecure,
       sameSite: 'lax',
     })
     return response

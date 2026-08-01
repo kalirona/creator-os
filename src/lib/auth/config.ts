@@ -21,4 +21,7 @@ export const authConfig = {
   refreshTokenMaxAge: 90 * 24 * 60 * 60, // 90 days
   issuer: 'creatoros',
   algorithm: 'HS256' as const,
+  // Secure cookies are rejected by browsers over plain HTTP. Allow opting out
+  // via AUTH_COOKIE_SECURE=false (e.g. when serving behind a non-SSL proxy).
+  cookieSecure: process.env.AUTH_COOKIE_SECURE ? process.env.AUTH_COOKIE_SECURE === 'true' : process.env.NODE_ENV === 'production',
 }
