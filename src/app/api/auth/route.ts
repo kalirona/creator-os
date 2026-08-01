@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set(authConfig.cookieName, token, {
       maxAge: authConfig.sessionMaxAge,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: authConfig.cookieSecure,
       sameSite: 'lax',
     })
 
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set(authConfig.cookieName, token, {
       maxAge: authConfig.sessionMaxAge,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: authConfig.cookieSecure,
       sameSite: 'lax',
     })
 
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set(authConfig.cookieName, result.token, {
       maxAge: authConfig.sessionMaxAge,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: authConfig.cookieSecure,
       sameSite: 'lax',
     })
 
