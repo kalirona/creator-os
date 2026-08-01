@@ -416,18 +416,18 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
           />
         ),
       }}
-      leftCollapsed={!leftOpen}
+leftCollapsed={!leftOpen}
       rightCollapsed={!rightOpen}
       onLeftToggle={(collapsed) => setLeftOpen(!collapsed)}
       onRightToggle={(collapsed) => setRightOpen(!collapsed)}
-      publishBar={{
+      topBar={{
+        title: course?.title || 'Course Builder',
         status: editorStatus,
         lastSaved: lastSavedAt,
         hasChanges: hasUnsavedChanges,
         onSave: () => save(true),
         onPreview: () => setShowPreview(true),
         onPublish: togglePublish,
-        onUnpublish: togglePublish,
         onHistory: () => {},
         actions: [
           {

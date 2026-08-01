@@ -9,9 +9,6 @@ import {
   Send,
   Eye,
   History,
-  Undo2,
-  Redo2,
-  Keyboard,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -30,6 +27,19 @@ export interface EditorAction {
   shortcut?: string
 }
 
+export interface TopBarProps {
+  title?: string
+  actions?: EditorAction[]
+  status?: EditorStatus
+  lastSaved?: Date | null
+  hasChanges?: boolean
+  onSave?: () => void
+  onPreview?: () => void
+  onPublish?: () => void
+  onUnpublish?: () => void
+  onHistory?: () => void
+}
+
 export interface EditorLayoutProps {
   leftSidebar?: {
     title?: string
@@ -45,6 +55,7 @@ export interface EditorLayoutProps {
     width?: number
     defaultCollapsed?: boolean
   }
+  topBar?: TopBarProps
   publishBar?: {
     status?: EditorStatus
     lastSaved?: Date | null
@@ -68,6 +79,7 @@ export function EditorLayout({
   leftSidebar,
   centerCanvas,
   rightInspector,
+  topBar,
   publishBar,
   leftCollapsed: controlledLeft,
   rightCollapsed: controlledRight,
@@ -111,8 +123,232 @@ export function EditorLayout({
     error: 'Error',
   }
 
+  const renderTopBar = (bar: TopBarProps) => (
+    <div className="flex h-12 items-center justify-between gap-3 border-b bg-card px-4">
+      <div className="flex items-center gap-3">
+        {bar.title && <h2 className="text-sm font-semibold">{bar.title}</h2>}
+        {bar.status && (
+          <Badge
+            variant="secondary"
+            className={cn('text-xs font-medium', statusColors[bar.status])}
+          >
+            {statusText[bar.status]}
+          </Badge>
+        )}
+        {bar.lastSaved && bar.status !== 'saving' && bar.status !== 'error' && (
+          <span className="text-xs text-muted-foreground">
+            Saved {bar.lastSaved.toLocaleTimeString()}
+          </span>
+        )}
+        {bar.hasChanges && bar.status !== 'saving' && (
+          <Badge variant="outline" className="text-xs text-orange-600">
+            Unsaved changes
+          </Badge>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        {bar.actions?.map((action) => (
+          <Tooltip key={action.label} delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant={action.variant ?? 'ghost'}
+                size="sm"
+                onClick={action.onClick}
+                disabled={action.disabled}
+              >
+                {action.icon}
+                {action.label}
+              </Button>
+            </TooltipTrigger>
+            {action.shortcut && (
+              <TooltipContent>
+                <p>{action.label} — {action.shortcut}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        ))}
+
+        <Separator orientation="vertical" className="h-6" />
+
+        {bar.onHistory && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={bar.onHistory}>
+                <History className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>History</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {bar.onPreview && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="sm" onClick={bar.onPreview}>
+                <Eye className="h-4 w-4 mr-2" />
+                Preview
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Preview (⌘P)</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {bar.onSave && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={bar.onSave}
+                disabled={bar.status === 'saving'}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Save (⌘S)</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {bar.status === 'published' ? (
+          bar.onUnpublish && (
+            <Button variant="outline" size="sm" onClick={bar.onUnpublish}>
+              Unpublish
+            </Button>
+          )
+        ) : (
+          bar.onPublish && (
+            <Button size="sm" onClick={bar.onPublish}>
+              <Send className="h-4 w-4 mr-2" />
+              Publish
+            </Button>
+          )
+        )}
+      </div>
+    </div>
+  )
+
+  const renderPublishBar = (bar: any) => (
+    <div className="flex h-12 items-center justify-between gap-3 border-t bg-card px-4">
+      <div className="flex items-center gap-3">
+        <Badge
+          variant="secondary"
+          className={cn('text-xs font-medium', bar.status && statusColors[bar.status])}
+        >
+          {bar.status && statusText[bar.status]}
+        </Badge>
+
+        {bar.lastSaved && bar.status !== 'saving' && bar.status !== 'error' && (
+          <span className="text-xs text-muted-foreground">
+            Saved {bar.lastSaved.toLocaleTimeString()}
+          </span>
+        )}
+
+        {bar.hasChanges && bar.status !== 'saving' && (
+          <Badge variant="outline" className="text-xs text-orange-600">
+            Unsaved changes
+          </Badge>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        {bar.actions?.map((action) => (
+          <Tooltip key={action.label} delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant={action.variant ?? 'ghost'}
+                size="sm"
+                onClick={action.onClick}
+                disabled={action.disabled}
+              >
+                {action.icon}
+                {action.label}
+              </Button>
+            </TooltipTrigger>
+            {action.shortcut && (
+              <TooltipContent>
+                <p>{action.label} — {action.shortcut}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        ))}
+
+        <Separator orientation="vertical" className="h-6" />
+
+        {bar.onHistory && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={bar.onHistory}>
+                <History className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>History</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {bar.onPreview && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="sm" onClick={bar.onPreview}>
+                <Eye className="h-4 w-4 mr-2" />
+                Preview
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Preview (⌘P)</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {bar.onSave && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={bar.onSave}
+                disabled={bar.status === 'saving'}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Save (⌘S)</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {bar.status === 'published' ? (
+          bar.onUnpublish && (
+            <Button variant="outline" size="sm" onClick={bar.onUnpublish}>
+              Unpublish
+            </Button>
+          )
+        ) : (
+          bar.onPublish && (
+            <Button size="sm" onClick={bar.onPublish}>
+              <Send className="h-4 w-4 mr-2" />
+              Publish
+            </Button>
+          )
+        )}
+      </div>
+    </div>
+  )
+
   return (
     <div className={cn('flex h-full w-full flex-col', className)}>
+      {topBar && renderTopBar(topBar)}
       <div className="flex flex-1 overflow-hidden">
         {leftSidebar && (
           <>
@@ -126,7 +362,7 @@ export function EditorLayout({
                   className="flex flex-col border-r border-sidebar-border bg-card overflow-hidden"
                 >
                   {(leftSidebar.title || leftSidebar.icon) && (
-                    <div className="flex h-14 items-center gap-2.5 border-b px-4">
+                    <div className="flex h-12 items-center gap-2.5 border-b px-4">
                       {leftSidebar.icon}
                       <h2 className="text-sm font-semibold">{leftSidebar.title}</h2>
                     </div>
@@ -162,9 +398,7 @@ export function EditorLayout({
             </TooltipProvider>
           </>
         )}
-
         <div className="flex-1 overflow-hidden">{centerCanvas}</div>
-
         {rightInspector && (
           <>
             <AnimatePresence initial={false}>
@@ -177,7 +411,7 @@ export function EditorLayout({
                   className="flex flex-col border-l border-sidebar-border bg-card overflow-hidden"
                 >
                   {(rightInspector.title) && (
-                    <div className="flex h-14 items-center gap-2.5 border-b px-4">
+                    <div className="flex h-12 items-center gap-2.5 border-b px-4">
                       <h2 className="text-sm font-semibold">{rightInspector.title}</h2>
                     </div>
                   )}
@@ -213,9 +447,8 @@ export function EditorLayout({
           </>
         )}
       </div>
-
       {publishBar && (
-        <div className="flex h-14 items-center justify-between gap-3 border-t bg-card px-4">
+        <div className="flex h-12 items-center justify-between gap-3 border-t bg-card px-4">
           <div className="flex items-center gap-3">
             <Badge
               variant="secondary"
