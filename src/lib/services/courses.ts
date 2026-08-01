@@ -29,7 +29,7 @@ export class CourseService {
     description?: string
     category?: string
     level?: string
-    price?: number
+    price?: number | string
   }) {
     await requirePermission(ctx, 'course', 'create')
 
@@ -44,7 +44,7 @@ export class CourseService {
         description: data.description || '',
         category: data.category || 'Marketing',
         level: data.level || 'BEGINNER',
-        price: data.price || 0,
+        price: parseFloat(String(data.price)) || 0,
         status: 'DRAFT',
       },
     })
@@ -75,7 +75,13 @@ export class CourseService {
     })
     if (!existing) throw new Error('Course not found')
 
-    const course = await db.course.update({ where: { id }, data })
+    // Convert price to float if present
+    const updateData = { ...data }
+    if (updateData.price !== undefined) {
+      updateData.price = parseFloat(String(updateData.price)) || 0
+    }
+
+    const course = await db.course.update({ where: { id }, data: updateData })
 
     await logAuditEvent('course.update', {
       userId: ctx.user.id,
