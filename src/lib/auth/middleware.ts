@@ -5,7 +5,11 @@ import { authConfig } from './config'
 export async function updateSession(request: NextRequest) {
   const sessionToken = request.cookies.get(authConfig.cookieName)?.value
 
-  if (!sessionToken) return NextResponse.next()
+  if (!sessionToken) {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('redirect', request.nextUrl.pathname)
+    return NextResponse.redirect(loginUrl)
+  }
 
   const payload = await decryptSession(sessionToken)
   if (!payload) {
