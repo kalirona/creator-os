@@ -1,3 +1,5 @@
+'use server'
+
 import { loginSchema, validatedAction } from '@/lib/validations/auth'
 import { db } from '@/lib/db'
 import { verifyPassword, createSession } from '@/lib/auth'

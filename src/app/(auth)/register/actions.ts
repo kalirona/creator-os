@@ -1,3 +1,5 @@
+'use server'
+
 import { registerSchema, validatedAction } from '@/lib/validations/auth'
 import { db } from '@/lib/db'
 import { hashPassword, validatePasswordStrength, createSession } from '@/lib/auth'
