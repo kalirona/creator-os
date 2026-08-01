@@ -26,7 +26,7 @@ export function useApi<T>(url: string | null, deps: unknown[] = []): UseApiState
     let active = true
     setLoading(true)
     setError(null)
-    fetch(url)
+    fetch(url, { credentials: 'include' })
       .then(async (r) => {
         if (!r.ok) throw new Error(`Request failed (${r.status})`)
         const json = await r.json()
