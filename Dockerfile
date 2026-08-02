@@ -38,8 +38,10 @@ ENV PORT=3007
 ENV HOSTNAME=0.0.0.0
 
 # Create non-root user
-RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs
+RUN apt-get update && apt-get install -y shadow && \
+    addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
