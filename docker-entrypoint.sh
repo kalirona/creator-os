@@ -12,5 +12,5 @@ DATABASE_URL="file:/app/data/creatoros.db" bunx prisma db push --skip-generate -
 echo "✅ Database schema ready"
 
 # Start the Next.js standalone server
-echo "🚀 Starting Next.js server on port ${PORT:-3000}..."
+echo "🚀 Starting Next.js server on port ${PORT:-3007}..."
 exec bun server.js

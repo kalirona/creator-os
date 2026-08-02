@@ -6,10 +6,10 @@ services:
     container_name: creator-os
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3007:3007"
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=3007
       - HOSTNAME=0.0.0.0
       # SQLite database file persisted in a named volume
       - DATABASE_URL=file:/app/data/creatoros.db
@@ -22,7 +22,7 @@ services:
     volumes:
       - creator-os-data:/app/data
     healthcheck:
-      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3007').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 3
