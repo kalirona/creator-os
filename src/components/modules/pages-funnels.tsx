@@ -25,11 +25,18 @@ import { useApi, formatNumber, timeAgo } from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/app-store'
 import { EditorLayout } from '@/components/editor/EditorLayout'
+import { SectionRenderer } from '@/components/page-builder/SectionRenderer'
 import { EmptyState } from '@/components/ui-enterprise/EmptyState'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
 import { ErrorState } from '@/components/ui-enterprise/ErrorState'
 import { AppCard } from '@/components/ui-enterprise/AppCard'
 import type { EditorStatus } from '@/components/editor/EditorLayout'
+
+import {
+  DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverlay, DraggableSyntheticListeners,
+} from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 type SubTab = 'pages' | 'landing' | 'funnels' | 'navigation' | 'blog' | 'domains' | 'seo' | 'settings'
 
@@ -276,6 +283,7 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
   const [selectedSection, setSelectedSection] = useState<Section | null>(null)
   const [showAddPanel, setShowAddPanel] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const pageData = data?.page
 
@@ -298,10 +306,51 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
   const updateSection = async (id: string, content: Record<string, unknown>) => { try { await callApi('/api/data/page-sections', 'PUT', { id, content }); } catch { toast.error('Save failed') } }
   const aiAction = async (s: Section, action: string) => { setBusy(s.id + action); try { const d = await callApi('/api/ai/section-rewrite', 'POST', { action, content: s.content, sectionType: s.type }); const updated = { ...s, content: d.content }; await updateSection(s.id, d.content); toast.success(`AI ${action.toLowerCase()} done! -${d.creditsUsed} credits`); refetch() } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) } }
 
-  const publish = async () => { setBusy('publish'); try { toast.success('Page published', { description: 'Your changes are now live.' }); } finally { setBusy(null) } }
+  const reorderSections = async (ids: string[]) => {
+    try { await callApi('/api/data/page-sections', 'PUT', { action: 'reorder', ids, pageId: page.id }); refetch() }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') }
+  }
+
+  const publish = async (publishState?: string) => {
+    setBusy('publish')
+    try {
+      const target = publishState || (pageData?.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED')
+      await callApi('/api/data/pages', 'PUT', { id: page.id, status: target })
+      toast.success(target === 'PUBLISHED' ? 'Page published!' : 'Page unpublished', { description: 'Your changes are now live.' })
+      refetch()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Publish failed') } finally { setBusy(null) }
+  }
+
+  const saveSeo = async (patch: Record<string, unknown>) => {
+    setSaving(true)
+    try { await callApi('/api/data/pages', 'PUT', { id: page.id, ...patch }); toast.success('Saved'); refetch() }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setSaving(false) }
+  }
 
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
+
+  const [activeDrag, setActiveDrag] = useState<Section | null>(null)
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const onDragStart = (e: DragStartEvent) => {
+    const s = pageData?.sections.find((x) => x.id === e.active.id)
+    if (s) setActiveDrag(s)
+  }
+  const onDragEnd = (e: DragEndEvent) => {
+    setActiveDrag(null)
+    const { active, over } = e
+    if (!over || active.id === over.id || !pageData) return
+    const ids = pageData.sections.map((s) => s.id)
+    const oldIndex = ids.indexOf(String(active.id))
+    const newIndex = ids.indexOf(String(over.id))
+    if (oldIndex < 0 || newIndex < 0) return
+    const next = arrayMove(ids, oldIndex, newIndex)
+    reorderSections(next)
+  }
 
   if (loading) return <LoadingState size="lg" text="Loading page editor..." />
   if (error || !pageData) return <ErrorState description={error || 'Failed to load page.'} action={{ label: 'Retry', onClick: refetch }} />
@@ -310,6 +359,7 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
 
   return (
     <div className="h-screen">
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setActiveDrag(null)}>
       <EditorLayout
         leftSidebar={{
           title: 'Navigator',
@@ -331,125 +381,139 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
                       icon={<Layout className="h-8 w-8" />}
                     />
                   ) : (
-                    pageData.sections.map((s, i) => {
-                      const meta = SECTION_TYPES.find((t) => t.type === s.type)
-                      const Icon = meta?.icon || Layout
-                      const isSelected = selectedSection?.id === s.id
-                      return (
-                        <motion.div
-                          key={s.id}
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.02 }}
-                        >
-                          <div
-                            className={cn(
-                              'rounded-lg border p-3 cursor-pointer transition-all',
-                              isSelected && 'ring-2 ring-primary bg-primary/5',
-                              s.isHidden && 'opacity-50',
-                            )}
-                            onClick={() => setSelectedSection(isSelected ? null : s)}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground w-5 text-center">{i + 1}</span>
+                    <SortableContext items={pageData.sections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                      {pageData.sections.map((s, i) => {
+                        const meta = SECTION_TYPES.find((t) => t.type === s.type)
+                        const Icon = meta?.icon || Layout
+                        const isSelected = selectedSection?.id === s.id
+                        return (
+                          <SortableSection key={s.id} id={s.id}>
+                            {({ setNodeRef, style, attributes, listeners, isDragging }) => (
+                              <div ref={setNodeRef} style={style} {...attributes} className={isDragging ? 'opacity-40' : ''}>
+                            <motion.div
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: i * 0.02 }}
+                            >
                               <div
                                 className={cn(
-                                  'flex h-8 w-8 items-center justify-center rounded-lg',
-                                  isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+                                  'rounded-lg border p-3 cursor-pointer transition-all',
+                                  isSelected && 'ring-2 ring-primary bg-primary/5',
+                                  s.isHidden && 'opacity-50',
                                 )}
+                                onClick={() => setSelectedSection(isSelected ? null : s)}
                               >
-                                <Icon className="h-4 w-4" />
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground w-5 text-center">{i + 1}</span>
+                                  <div
+                                    className={cn(
+                                      'flex h-8 w-8 items-center justify-center rounded-lg',
+                                      isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+                                    )}
+                                  >
+                                    <Icon className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{meta?.name || s.type}</p>
+                                    <p className="text-[10px] text-muted-foreground truncate">
+                                      {getSectionPreview(s)}
+                                    </p>
+                                  </div>
+                                  <span
+                                    {...listeners}
+                                    className="text-muted-foreground/50 cursor-grab active:cursor-grabbing hover:text-foreground transition"
+                                    title="Drag to reorder"
+                                  >
+                                    <GripVertical className="h-4 w-4" />
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-0.5 mt-1.5">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      moveSection(s.id, 'moveUp')
+                                    }}
+                                    disabled={busy === s.id + 'moveUp' || i === 0}
+                                    className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                    title="Move up"
+                                  >
+                                    <ArrowUp className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      moveSection(s.id, 'moveDown')
+                                    }}
+                                    disabled={busy === s.id + 'moveDown' || i === pageData.sections.length - 1}
+                                    className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                    title="Move down"
+                                  >
+                                    <ArrowDown className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      duplicateSection(s.id)
+                                    }}
+                                    disabled={busy === s.id}
+                                    className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                    title="Duplicate"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      toggleHide(s)
+                                    }}
+                                    disabled={busy === s.id}
+                                    className={cn(
+                                      'p-1 transition',
+                                      s.isHidden ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+                                    )}
+                                    title={s.isHidden ? 'Show' : 'Hide'}
+                                  >
+                                    {s.isHidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      deleteSection(s.id)
+                                    }}
+                                    disabled={busy === s.id}
+                                    className="p-1 text-rose-500 hover:text-rose-600 disabled:opacity-30"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-1 mt-1.5 flex-wrap pl-1">
+                                  <button
+                                    onClick={() => setSelectedSection(s)}
+                                    className={cn(
+                                      'rounded px-2 py-0.5 text-[10px] font-medium transition',
+                                      isSelected
+                                        ? 'bg-primary/10 text-primary'
+                                        : 'text-muted-foreground hover:bg-muted',
+                                    )}
+                                  >
+                                    <Pencil className="h-2.5 w-2.5 inline mr-0.5" />
+                                    Edit
+                                  </button>
+                                  <AIChip label="Rewrite" loading={busy === s.id + 'REWRITE'} onClick={() => aiAction(s, 'REWRITE')} />
+                                  <AIChip label="Improve" loading={busy === s.id + 'IMPROVE'} onClick={() => aiAction(s, 'IMPROVE')} />
+                                  <AIChip label="Shorten" loading={busy === s.id + 'SHORTEN'} onClick={() => aiAction(s, 'SHORTEN')} />
+                                  <AIChip label="Expand" loading={busy === s.id + 'EXPAND'} onClick={() => aiAction(s, 'EXPAND')} />
+                                  <AIChip label="Translate" loading={busy === s.id + 'TRANSLATE'} onClick={() => aiAction(s, 'TRANSLATE')} />
+                                </div>
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{meta?.name || s.type}</p>
-                                <p className="text-[10px] text-muted-foreground truncate">
-                                  {getSectionPreview(s)}
-                                </p>
+                            </motion.div>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-0.5 mt-1.5">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  moveSection(s.id, 'moveUp')
-                                }}
-                                disabled={busy === s.id + 'moveUp' || i === 0}
-                                className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                                title="Move up"
-                              >
-                                <ArrowUp className="h-3 w-3" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  moveSection(s.id, 'moveDown')
-                                }}
-                                disabled={busy === s.id + 'moveDown' || i === pageData.sections.length - 1}
-                                className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                                title="Move down"
-                              >
-                                <ArrowDown className="h-3 w-3" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  duplicateSection(s.id)
-                                }}
-                                disabled={busy === s.id}
-                                className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                                title="Duplicate"
-                              >
-                                <Copy className="h-3 w-3" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  toggleHide(s)
-                                }}
-                                disabled={busy === s.id}
-                                className={cn(
-                                  'p-1 transition',
-                                  s.isHidden ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
-                                )}
-                                title={s.isHidden ? 'Show' : 'Hide'}
-                              >
-                                {s.isHidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  deleteSection(s.id)
-                                }}
-                                disabled={busy === s.id}
-                                className="p-1 text-rose-500 hover:text-rose-600 disabled:opacity-30"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-1 mt-1.5 flex-wrap pl-1">
-                              <button
-                                onClick={() => setSelectedSection(s)}
-                                className={cn(
-                                  'rounded px-2 py-0.5 text-[10px] font-medium transition',
-                                  isSelected
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'text-muted-foreground hover:bg-muted',
-                                )}
-                              >
-                                <Pencil className="h-2.5 w-2.5 inline mr-0.5" />
-                                Edit
-                              </button>
-                              <AIChip label="Rewrite" loading={busy === s.id + 'REWRITE'} onClick={() => aiAction(s, 'REWRITE')} />
-                              <AIChip label="Improve" loading={busy === s.id + 'IMPROVE'} onClick={() => aiAction(s, 'IMPROVE')} />
-                              <AIChip label="Shorten" loading={busy === s.id + 'SHORTEN'} onClick={() => aiAction(s, 'SHORTEN')} />
-                              <AIChip label="Expand" loading={busy === s.id + 'EXPAND'} onClick={() => aiAction(s, 'EXPAND')} />
-                              <AIChip label="Translate" loading={busy === s.id + 'TRANSLATE'} onClick={() => aiAction(s, 'TRANSLATE')} />
-                            </div>
-                          </div>
-                        </motion.div>
-                      )
-                    })
+                            )}
+                          </SortableSection>
+                        )
+                      })}
+                    </SortableContext>
                   )}
                 </div>
               </div>
@@ -481,7 +545,7 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
         }}
         centerCanvas={
           <div className="flex-1 overflow-y-auto scroll-thin min-w-0">
-            <div className="p-6">
+            <div className="p-6 max-w-4xl mx-auto">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold">{pageData.title}</h2>
@@ -501,15 +565,44 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
                   {pageData.status}
                 </Badge>
               </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => toast.info('Preview opened in new tab')}>
-                  <Eye className="h-3.5 w-3.5 mr-1.5" />
-                  Preview
-                </Button>
-                <Button size="sm" onClick={publish} disabled={busy === 'publish'}>
-                  <Globe className="h-3.5 w-3.5 mr-1.5" />
-                  Publish
-                </Button>
+              <div className="space-y-3">
+                {pageData.sections.length === 0 ? (
+                  <div className="rounded-2xl border-2 border-dashed p-16 text-center">
+                    <Layout className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                    <p className="text-sm font-medium">This page is empty</p>
+                    <p className="text-xs text-muted-foreground mt-1 mb-4">Add your first section from the navigator or press Add Section.</p>
+                    <Button size="sm" onClick={() => setShowAddPanel(true)}>
+                      <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Section
+                    </Button>
+                  </div>
+                ) : (
+                  pageData.sections.map((s) => {
+                    const isSelected = selectedSection?.id === s.id
+                    if (s.isHidden) return null
+                    return (
+                      <div
+                        key={s.id}
+                        onClick={() => setSelectedSection(isSelected ? null : s)}
+                        className={cn(
+                          'relative rounded-xl border-2 transition-all cursor-pointer',
+                          isSelected ? 'border-primary shadow-lg' : 'border-transparent hover:border-muted',
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'absolute -top-2.5 left-3 z-10 rounded-full px-2 py-0.5 text-[10px] font-medium shadow-sm transition',
+                            isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+                          )}
+                        >
+                          {SECTION_TYPES.find((t) => t.type === s.type)?.name || s.type}
+                        </div>
+                        <div className="pointer-events-none select-none">
+                          <SectionRenderer type={s.type} content={s.content} />
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
               </div>
             </div>
           </div>
@@ -546,9 +639,9 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
         onRightToggle={(collapsed) => setRightOpen(!collapsed)}
         publishBar={{
           status: editorStatus,
-          onSave: () => publish(),
+          onSave: () => saveSeo({ title: pageData.title }),
           onPreview: () => toast.info('Preview opened in new tab'),
-          onPublish: publish,
+          onPublish: () => publish(),
         }}
       >
         <Dialog open={showAddPanel} onOpenChange={setShowAddPanel}>
@@ -579,8 +672,33 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
           </DialogContent>
         </Dialog>
       </EditorLayout>
+      <DragOverlay>
+        {activeDrag ? (
+          <div className="rounded-lg border bg-card p-3 shadow-lg flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Layout className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">{SECTION_TYPES.find((t) => t.type === activeDrag.type)?.name || activeDrag.type}</p>
+              <p className="text-[10px] text-muted-foreground">{getSectionPreview(activeDrag)}</p>
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
+      </DndContext>
     </div>
   )
+}
+
+function SortableSection({ id, children }: { id: string; children: (p: { setNodeRef: (node: HTMLElement | null) => void; style: React.CSSProperties; attributes: React.HTMLAttributes<HTMLElement>; listeners: DraggableSyntheticListeners | undefined; isDragging: boolean }) => React.ReactNode }) {
+  const { setNodeRef, transform, transition, attributes, listeners, isDragging } = useSortable({ id })
+  return children({
+    setNodeRef,
+    attributes,
+    listeners,
+    isDragging,
+    style: { transform: CSS.Transform.toString(transform), transition },
+  })
 }
 
 function IconBtn({ icon: Icon, onClick, disabled, title, danger, active }: { icon: React.ComponentType<{ className?: string }>; onClick: () => void; disabled?: boolean; title: string; danger?: boolean; active?: boolean }) {
@@ -706,9 +824,14 @@ function FunnelsPanel() {
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
 
   if (loading) return <LoadingState size="lg" text="Loading funnels..." />
   if (error || !data) return <ErrorState description={error || 'Failed to load funnels.'} action={{ label: 'Retry', onClick: refetch }} />
+
+  if (editing) {
+    return <FunnelEditor funnelId={editing.id} funnelName={editing.name} onBack={() => setEditing(null)} onChanged={refetch} />
+  }
   const STEP_ICONS: Record<string, React.ComponentType<{ className?: string }>> = { LANDING: Rocket, CHECKOUT: ShoppingCart, UPSELL: TrendingUp, DOWNSELL: TrendingUp, THANK_YOU: Check, EMAIL: Mail, COMMUNITY_INVITE: Users, COURSE_ACCESS: FileText }
 
   const createFunnel = async () => {
@@ -758,10 +881,11 @@ function FunnelsPanel() {
       ) : data.funnels.map((f) => (
         <Card key={f.id}>
           <CardHeader className="pb-3 flex-row items-center justify-between">
-            <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600"><Megaphone className="h-5 w-5" /></div><div><p className="font-semibold text-sm">{f.name}</p><p className="text-xs text-muted-foreground">{f.description || 'No description'}</p></div></div>
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setEditing({ id: f.id, name: f.name })}><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600"><Megaphone className="h-5 w-5" /></div><div><p className="font-semibold text-sm">{f.name}</p><p className="text-xs text-muted-foreground">{f.description || 'No description'}</p></div></div>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className={cn('text-xs', f.status === 'LIVE' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600')}>{f.status}</Badge>
               <span className="text-xs text-muted-foreground hidden sm:inline">{formatNumber(f.visits)} visits · {f.conversions} conv. · ${formatNumber(f.revenue)}</span>
+              <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => setEditing({ id: f.id, name: f.name })}><Settings2 className="h-3.5 w-3.5" />Edit</Button>
               <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-rose-500 hover:text-rose-600" onClick={() => deleteFunnel(f.id, f.name)}><Trash2 className="h-4 w-4" /></Button>
             </div>
           </CardHeader>
@@ -796,6 +920,199 @@ function FunnelsPanel() {
       </Dialog>
     </div>
   )
+}
+
+// ===== Funnel step editor =====
+const FUNNEL_STEP_TYPES: { type: string; label: string; desc: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { type: 'LANDING', label: 'Landing Page', desc: 'Capture traffic & leads', icon: Rocket },
+  { type: 'CHECKOUT', label: 'Checkout', desc: 'Sell the offer', icon: ShoppingCart },
+  { type: 'UPSELL', label: 'Upsell', desc: 'Increase order value', icon: TrendingUp },
+  { type: 'DOWNSELL', label: 'Downsell', desc: 'Recover lost sales', icon: TrendingUp },
+  { type: 'THANK_YOU', label: 'Thank You', desc: 'Post-purchase page', icon: Check },
+  { type: 'EMAIL', label: 'Email Sequence', desc: 'Follow up automation', icon: Mail },
+  { type: 'COMMUNITY_INVITE', label: 'Community Invite', desc: 'Drive engagement', icon: Users },
+  { type: 'COURSE_ACCESS', label: 'Course Access', desc: 'Grant course access', icon: FileText },
+]
+
+function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: string; funnelName: string; onBack: () => void; onChanged: () => void }) {
+  const { data, loading, error, refetch } = useApi<{ steps: { id: string; name: string; type: string; position: number; isRequired: boolean; pageId: string | null; page: { id: string; title: string; slug: string } | null }[] }>(`/api/data/funnel-steps?funnelId=${funnelId}`)
+  const pageOptions = useApi<{ pages: { id: string; title: string; slug: string }[] }>('/api/data/pages')
+  const [addOpen, setAddOpen] = useState(false)
+  const [addType, setAddType] = useState('LANDING')
+  const [addName, setAddName] = useState('')
+  const [busy, setBusy] = useState<string | null>(null)
+  const [activeDrag, setActiveDrag] = useState<{ id: string; name: string } | null>(null)
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
+  const callApi = async (url: string, method: string, body?: unknown) => {
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
+    const raw = await res.text()
+    if (!res.ok) { let m = 'Failed'; try { const j = JSON.parse(raw); m = j.error } catch { } throw new Error(m) }
+    try { return JSON.parse(raw) } catch { return {} }
+  }
+
+  const steps = data?.steps ?? []
+  const pages = pageOptions.data?.pages ?? []
+
+  const addStep = async () => {
+    if (!addName.trim()) { toast.error('Step name is required'); return }
+    setBusy('add')
+    try {
+      await callApi('/api/data/funnel-steps', 'POST', { funnelId, name: addName.trim(), type: addType })
+      toast.success('Step added'); setAddOpen(false); setAddName(''); refetch(); onChanged()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) }
+  }
+
+  const deleteStep = async (id: string, name: string) => {
+    if (!confirm(`Delete step "${name}"?`)) return
+    setBusy(id)
+    try { await callApi(`/api/data/funnel-steps?id=${id}`, 'DELETE'); toast.success('Step deleted'); refetch(); onChanged() }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) }
+  }
+
+  const moveStep = async (id: string, dir: number) => {
+    setBusy(id + dir)
+    try {
+      const idx = steps.findIndex((s) => s.id === id)
+      const target = steps[idx + dir]
+      if (!target) return
+      const order = steps.map((s) => s.id)
+      order[idx] = target.id; order[idx + dir] = id
+      await callApi('/api/data/funnel-steps', 'PUT', { id, action: 'reorder', order })
+      refetch()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) }
+  }
+
+  const toggleRequired = async (s: { id: string; isRequired: boolean }) => {
+    setBusy(s.id + 'req')
+    try { await callApi('/api/data/funnel-steps', 'PUT', { id: s.id, isRequired: !s.isRequired }); refetch() }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) }
+  }
+
+  const linkPage = async (stepId: string, pageId: string | null) => {
+    setBusy(stepId + 'link')
+    try { await callApi('/api/data/funnel-steps', 'PUT', { id: stepId, pageId }); refetch() }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) }
+  }
+
+  const renameStep = async (stepId: string, name: string) => {
+    if (!name.trim()) return
+    try { await callApi('/api/data/funnel-steps', 'PUT', { id: stepId, name: name.trim() }); refetch(); onChanged() }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') }
+  }
+
+  const onDragEnd = async (e: DragEndEvent) => {
+    setActiveDrag(null)
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const order = steps.map((s) => s.id)
+    const oldIndex = order.indexOf(String(active.id))
+    const newIndex = order.indexOf(String(over.id))
+    if (oldIndex < 0 || newIndex < 0) return
+    const next = arrayMove(order, oldIndex, newIndex)
+    try {
+      await callApi('/api/data/funnel-steps', 'PUT', { id: String(active.id), action: 'reorder', order: next })
+      refetch(); onChanged()
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Reorder failed') }
+  }
+
+  if (loading) return <LoadingState size="lg" text="Loading funnel steps..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load steps.'} action={{ label: 'Retry', onClick: refetch }} />
+
+  const STEP_ICON: Record<string, React.ComponentType<{ className?: string }>> = { LANDING: Rocket, CHECKOUT: ShoppingCart, UPSELL: TrendingUp, DOWNSELL: TrendingUp, THANK_YOU: Check, EMAIL: Mail, COMMUNITY_INVITE: Users, COURSE_ACCESS: FileText }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button size="sm" variant="ghost" onClick={onBack} className="gap-1.5"><ArrowLeft className="h-4 w-4" />Back</Button>
+          <div><h2 className="text-lg font-bold">{funnelName}</h2><p className="text-xs text-muted-foreground">Connect pages into a conversion sequence.</p></div>
+        </div>
+        <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-1.5" />Add Step</Button>
+      </div>
+
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(e) => { const s = steps.find((x) => x.id === e.active.id); if (s) setActiveDrag({ id: s.id, name: s.name }) }} onDragEnd={onDragEnd} onDragCancel={() => setActiveDrag(null)}>
+        {steps.length === 0 ? (
+          <Card><CardContent className="p-12 text-center"><Rocket className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" /><p className="text-sm font-medium">No steps yet</p><p className="text-xs text-muted-foreground mt-1 mb-4">Add your first step to start building this funnel.</p><Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-1.5" />Add Step</Button></CardContent></Card>
+        ) : (
+          <SortableContext items={steps.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {steps.map((s, i) => {
+                const Icon = STEP_ICON[s.type] || FileText
+                return (
+                  <SortableStep key={s.id} id={s.id}>
+                    {({ setNodeRef, style, attributes, listeners, isDragging }) => (
+                      <div ref={setNodeRef} style={style} {...attributes} className={isDragging ? 'opacity-40' : ''}>
+                        <Card className={cn('transition', isDragging && 'ring-2 ring-primary')}>
+                          <CardContent className="p-3 flex items-center gap-3">
+                            <span {...listeners} className="text-muted-foreground/50 cursor-grab active:cursor-grabbing hover:text-foreground" title="Drag to reorder"><GripVertical className="h-4 w-4" /></span>
+                            <span className="text-xs text-muted-foreground w-5 text-center">{i + 1}</span>
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0"><Icon className="h-4 w-4" /></div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <Input className="h-7 text-sm font-medium max-w-[200px]" defaultValue={s.name} onBlur={(e) => { if (e.target.value !== s.name) renameStep(s.id, e.target.value) }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }} />
+                                <Badge variant="secondary" className="text-[10px] shrink-0">{s.type}</Badge>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                <Select value={s.pageId || 'none'} onValueChange={(v) => linkPage(s.id, v === 'none' ? null : v)}>
+                                  <SelectTrigger className="h-7 w-[220px] text-xs"><SelectValue placeholder="Link a page" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">No page linked</SelectItem>
+                                    {pages.map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                                <button onClick={() => toggleRequired(s)} className={cn('flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition', s.isRequired ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')} title={s.isRequired ? 'Required step' : 'Optional step'}>{s.isRequired ? <Check className="h-2.5 w-2.5" /> : <Zap className="h-2.5 w-2.5" />}{s.isRequired ? 'Required' : 'Optional'}</button>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <IconBtn icon={ArrowUp} onClick={() => moveStep(s.id, -1)} disabled={busy === s.id + -1 || i === 0} title="Move up" />
+                              <IconBtn icon={ArrowDown} onClick={() => moveStep(s.id, 1)} disabled={busy === s.id + 1 || i === steps.length - 1} title="Move down" />
+                              <IconBtn icon={Trash2} onClick={() => deleteStep(s.id, s.name)} disabled={busy === s.id} title="Delete" danger />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+                  </SortableStep>
+                )
+              })}
+            </div>
+          </SortableContext>
+        )}
+      </DndContext>
+
+      <DragOverlay>
+        {activeDrag ? (
+          <div className="rounded-lg border bg-card p-2 shadow-lg"><p className="text-sm font-medium px-1">{activeDrag.name}</p></div>
+        ) : null}
+      </DragOverlay>
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Add funnel step</DialogTitle><DialogDescription>Choose a step type and give it a name.</DialogDescription></DialogHeader>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 py-2">
+            {FUNNEL_STEP_TYPES.map((t) => {
+              const Icon = t.icon
+              return (
+                <button key={t.type} onClick={() => setAddType(t.type)} className={cn('flex flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition', addType === t.type ? 'border-primary bg-primary/5' : 'hover:border-primary/40 hover:bg-primary/5')}>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
+                  <p className="text-xs font-medium">{t.label}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">{t.desc}</p>
+                </button>
+              )
+            })}
+          </div>
+          <div className="space-y-1.5"><Label className="text-sm font-medium">Step name <span className="text-destructive">*</span></Label><Input value={addName} onChange={(e) => setAddName(e.target.value)} placeholder={`e.g. ${FUNNEL_STEP_TYPES.find((t) => t.type === addType)?.label || 'Step'} name`} onKeyDown={(e) => { if (e.key === 'Enter') addStep() }} /></div>
+          <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button><Button onClick={addStep} disabled={busy === 'add'}>{busy === 'add' ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Adding...</> : 'Add step'}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function SortableStep({ id, children }: { id: string; children: (p: { setNodeRef: (node: HTMLElement | null) => void; style: React.CSSProperties; attributes: React.HTMLAttributes<HTMLElement>; listeners: DraggableSyntheticListeners | undefined; isDragging: boolean }) => React.ReactNode }) {
+  const { setNodeRef, transform, transition, attributes, listeners, isDragging } = useSortable({ id })
+  return children({ setNodeRef, attributes, listeners, isDragging, style: { transform: CSS.Transform.toString(transform), transition } })
 }
 
 // ===== Navigation panel =====

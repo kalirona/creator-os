@@ -93,6 +93,21 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ success: true })
     }
 
+    if (action === 'reorder') {
+      const ids = (body as { ids?: string[] }).ids
+      if (!Array.isArray(ids)) return NextResponse.json({ error: 'ids required' }, { status: 400 })
+      const pageId = (body as { pageId?: string }).pageId
+      const page = pageId ? await db.page.findFirst({ where: { id: pageId, workspaceId: ctx.workspace.id } }) : null
+      if (!page && pageId) return NextResponse.json({ error: 'Page not found' }, { status: 404 })
+      for (let i = 0; i < ids.length; i++) {
+        const target = await db.pageSection.findFirst({
+          where: { id: ids[i], ...(pageId ? { pageId } : {}) },
+        })
+        if (target) await db.pageSection.update({ where: { id: target.id }, data: { position: i } })
+      }
+      return NextResponse.json({ success: true })
+    }
+
     const data: Record<string, unknown> = {}
     if (content !== undefined) data.content = JSON.stringify(content)
     if (isHidden !== undefined) data.isHidden = isHidden

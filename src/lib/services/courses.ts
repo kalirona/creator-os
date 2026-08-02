@@ -2,6 +2,21 @@ import { db } from '@/lib/db'
 import { logAuditEvent, logActivity } from '@/lib/logging'
 import { type RequestContext, requirePermission } from '@/lib/context'
 
+export interface CurriculumSection {
+  id?: string
+  title: string
+  position: number
+  lessons?: {
+    id?: string
+    title: string
+    type?: string
+    duration?: number
+    isPreview?: boolean
+    content?: string
+    position: number
+  }[]
+}
+
 export class CourseService {
   async list(ctx: RequestContext) {
     await requirePermission(ctx, 'course', 'read')
@@ -92,6 +107,95 @@ export class CourseService {
     })
 
     return { id: course.id, title: course.title, status: course.status }
+  }
+
+  /**
+   * Save the full course curriculum (sections + lessons) in a transaction.
+   */
+  async saveCurriculum(ctx: RequestContext, courseId: string, sections: CurriculumSection[]) {
+    await requirePermission(ctx, 'course', 'update')
+
+    const course = await db.course.findFirst({ where: { id: courseId, workspaceId: ctx.workspace.id } })
+    if (!course) throw new Error('Course not found')
+
+    await db.$transaction(async (tx) => {
+      const existingSections = await tx.section.findMany({ where: { courseId }, include: { lessons: true } })
+      const incomingSectionIds = new Set(sections.map((s) => s.id).filter(Boolean) as string[])
+
+      for (const section of existingSections) {
+        if (!incomingSectionIds.has(section.id)) {
+          await tx.lesson.deleteMany({ where: { sectionId: section.id } })
+          await tx.section.delete({ where: { id: section.id } })
+        }
+      }
+
+      for (let si = 0; si < sections.length; si++) {
+        const sec = sections[si]
+        let sectionId: string
+        if (sec.id && existingSections.some((s) => s.id === sec.id)) {
+          await tx.section.update({ where: { id: sec.id }, data: { title: sec.title, position: sec.position } })
+          sectionId = sec.id
+        } else {
+          const created = await tx.section.create({ data: { courseId, title: sec.title, position: sec.position } })
+          sectionId = created.id
+        }
+
+        const lessons = sec.lessons ?? []
+        const existingLessons = existingSections.find((s) => s.id === sectionId)?.lessons ?? []
+        const incomingLessonIds = new Set(lessons.map((l) => l.id).filter(Boolean) as string[])
+
+        for (const lesson of existingLessons) {
+          if (!incomingLessonIds.has(lesson.id)) {
+            await tx.lesson.delete({ where: { id: lesson.id } })
+          }
+        }
+
+        for (let li = 0; li < lessons.length; li++) {
+          const l = lessons[li]
+          const data = {
+            title: l.title,
+            type: l.type || 'TEXT',
+            duration: l.duration || 0,
+            isPreview: l.isPreview ?? false,
+            content: l.content || '',
+            position: l.position,
+          }
+          if (l.id && existingLessons.some((el) => el.id === l.id)) {
+            await tx.lesson.update({ where: { id: l.id }, data })
+          } else {
+            await tx.lesson.create({ data: { sectionId, ...data } })
+          }
+        }
+      }
+    })
+
+    const saved = await db.section.findMany({
+      where: { courseId },
+      orderBy: { position: 'asc' },
+      include: { lessons: { orderBy: { position: 'asc' } } },
+    })
+
+    await logAuditEvent('course.curriculum_update', {
+      userId: ctx.user.id,
+      workspaceId: ctx.workspace.id,
+      resource: 'Course',
+      resourceId: courseId,
+    })
+
+    await logActivity('saved_content', {
+      userId: ctx.user.id,
+      workspaceId: ctx.workspace.id,
+      description: `Saved curriculum for course "${course.title}"`,
+      metadata: { courseId },
+    })
+
+    return {
+      success: true,
+      sections: saved.map((s) => ({
+        id: s.id, title: s.title, position: s.position,
+        lessons: s.lessons.map((l) => ({ id: l.id, title: l.title, type: l.type, duration: l.duration, isPreview: l.isPreview, content: l.content, position: l.position })),
+      })),
+    }
   }
 
   async delete(ctx: RequestContext, id: string) {

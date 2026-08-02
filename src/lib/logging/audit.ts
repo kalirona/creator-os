@@ -15,6 +15,7 @@ export type AuditAction =
   | 'course.update'
   | 'course.delete'
   | 'course.duplicate'
+  | 'course.curriculum_update'
   | 'product.create'
   | 'product.update'
   | 'product.delete'

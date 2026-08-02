@@ -32,6 +32,7 @@ import { useAppStore } from '@/store/app-store'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { EditorLayout } from '@/components/editor/EditorLayout'
+import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { EmptyState } from '@/components/ui-enterprise/EmptyState'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
 import type { EditorStatus } from '@/components/editor/EditorLayout'
@@ -136,25 +137,56 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
         }),
       })
       if (!res.ok) throw new Error('Save failed')
+
+      const sectionsPayload = sections.map((s, si) => ({
+        id: s.id.startsWith('sec-') ? undefined : s.id,
+        title: s.title,
+        position: si,
+        lessons: s.lessons.map((l, li) => ({
+          id: l.id.startsWith('les-') ? undefined : l.id,
+          title: l.title,
+          type: l.type,
+          duration: l.duration,
+          isPreview: l.isPreview,
+          content: l.content,
+          position: li,
+        })),
+      }))
+
+      const curRes = await fetch('/api/data/courses/curriculum', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId: course.id, sections: sectionsPayload }),
+      })
+      if (!curRes.ok) {
+        const j = await curRes.json()
+        throw new Error(j.error || 'Curriculum save failed')
+      }
+      const curJson = await curRes.json()
+      if (curJson.sections) {
+        setSections(curJson.sections)
+        setCourse((prev) => (prev ? { ...prev, sections: curJson.sections } : prev))
+      }
+
       setSaveState('saved')
       setLastSavedAt(new Date())
       setHasUnsavedChanges(false)
       if (showToast) toast.success('All changes saved')
-    } catch {
+    } catch (e) {
       setSaveState('error')
-      if (showToast) toast.error('Save failed', { description: 'Please try again.' })
+      if (showToast) toast.error('Save failed', { description: e instanceof Error ? e.message : 'Please try again.' })
     }
-  }, [course, title, description])
+  }, [course, title, description, sections])
 
   useEffect(() => {
     if (!course) return
-    if (title === course.title && description === course.description) return
+    if (title === course.title && description === course.description && sections === course.sections) return
     setHasUnsavedChanges(true)
     setSaveState('idle')
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => save(), 1500)
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
-  }, [title, description, course, save])
+  }, [title, description, sections, course, save])
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -780,16 +812,16 @@ function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: 
   const [imageUrl, setImageUrl] = useState('')
 
   const BLOCK_TYPES = [
-    { label: 'Heading', icon: Type, template: '\n\n## New Heading\n\n' },
-    { label: 'Text', icon: FileText, template: '\n\nWrite your text here...\n\n' },
+    { label: 'Heading', icon: Type, template: '<h2>New Heading</h2>' },
+    { label: 'Text', icon: FileText, template: '<p>Write your text here...</p>' },
     { label: 'YouTube', icon: Video, action: 'youtube' },
     { label: 'Video URL', icon: PlayCircle, action: 'video' },
     { label: 'Image', icon: ImageIcon, action: 'image' },
     { label: 'Document', icon: FileText, action: 'document' },
-    { label: 'Quiz', icon: FileQuestion, template: '\n\n### Quiz\n**Question:** Type your question here?\n- [ ] Option A\n- [ ] Option B\n- [x] Option C (correct)\n\n**Explanation:** Add your explanation here.\n\n' },
-    { label: 'Callout', icon: AlertCircle, template: '\n\n> 💡 **Tip:** Add an important callout here.\n\n' },
-    { label: 'Code', icon: Code, template: '\n\n```\n// Your code here\n```\n\n' },
-    { label: 'Divider', icon: BookOpen, template: '\n\n---\n\n' },
+    { label: 'Quiz', icon: FileQuestion, template: '<h3>Quiz</h3><p><strong>Question:</strong> Type your question here?</p><ul><li>Option A</li><li>Option B</li><li>Option C (correct)</li></ul><p><em>Explanation:</em> Add your explanation here.</p>' },
+    { label: 'Callout', icon: AlertCircle, template: '<blockquote><p><strong>Tip:</strong> Add an important callout here.</p></blockquote>' },
+    { label: 'Code', icon: Code, template: '<pre><code>// Your code here</code></pre>' },
+    { label: 'Divider', icon: BookOpen, template: '<hr>' },
   ]
 
   const addBlock = (block: typeof BLOCK_TYPES[number]) => {
@@ -797,7 +829,7 @@ function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: 
     if (block.action === 'video') { setShowVideoInput(true); setShowBlockPicker(false); return }
     if (block.action === 'image') { setShowImageInput(true); setShowBlockPicker(false); return }
     if (block.action === 'document') {
-      const newContent = (lesson.content || '') + '\n\n📄 **Download:** [Click here to download](paste-your-document-url-here)\n\n'
+      const newContent = (lesson.content || '') + '<p><strong>Document:</strong> <a href="paste-your-document-url-here">Click here to download</a></p>'
       onUpdate({ content: newContent })
       setShowBlockPicker(false)
       toast.success('Document block added — paste your file URL')
@@ -818,7 +850,7 @@ function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: 
     if (ytMatch) embedUrl = `https://www.youtube.com/embed/${ytMatch[1]}`
     const vimeoMatch = embedUrl.match(/vimeo\.com\/(\d+)/)
     if (vimeoMatch) embedUrl = `https://player.vimeo.com/video/${vimeoMatch[1]}`
-    const newContent = (lesson.content || '') + `\n\n<video src="${embedUrl}" controls></video>\n\n[▶ Watch: ${embedUrl}](${embedUrl})\n\n`
+    const newContent = (lesson.content || '') + `<figure><iframe src="${embedUrl}" title="Lesson video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:100%;aspect-ratio:16/9;border-radius:0.5rem"></iframe></figure>`
     onUpdate({ content: newContent })
     setVideoUrl('')
     setShowVideoInput(false)
@@ -827,7 +859,7 @@ function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: 
 
   const insertImageBlock = () => {
     if (!imageUrl.trim()) { toast.error('Please enter an image URL'); return }
-    const newContent = (lesson.content || '') + `\n\n![Image description](${imageUrl.trim()})\n\n`
+    const newContent = (lesson.content || '') + `<figure><img src="${imageUrl.trim()}" alt="Lesson image" style="max-width:100%;border-radius:0.5rem" /></figure>`
     onUpdate({ content: newContent })
     setImageUrl('')
     setShowImageInput(false)
@@ -850,22 +882,10 @@ function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: 
 
       <div className="space-y-2">
         <Label className="text-sm font-medium">Lesson Content</Label>
-        <Textarea
-          rows={16}
-          className="text-sm leading-relaxed"
+        <RichTextEditor
           value={lesson.content}
-          onChange={(e) => onUpdate({ content: e.target.value })}
-          placeholder="Write your lesson content here. You can use markdown for formatting.
-
-# Introduction
-Explain what students will learn in this lesson.
-
-## Key Points
-- Point 1
-- Point 2
-
-## Exercise
-Complete the following exercise to practice what you've learned."
+          onChange={(html) => onUpdate({ content: html })}
+          placeholder={'Write your lesson content here.\n\nStart typing to build your lesson with rich text, images, tables, and more.'}
         />
       </div>
 

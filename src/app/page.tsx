@@ -22,6 +22,7 @@ import { AdminModule } from '@/components/modules/admin'
 import { CertificatesModule } from '@/components/modules/certificates'
 import { MediaLibraryModule } from '@/components/modules/media-library'
 import { CourseBuilder } from '@/components/course-builder/builder'
+import { CoursePlayer } from '@/components/course-player/player'
 import type { ModuleId } from '@/lib/nav'
 
 const MODULES: Record<ModuleId, React.ComponentType> = {
@@ -47,11 +48,17 @@ const MODULES: Record<ModuleId, React.ComponentType> = {
 export default function Home() {
   const activeModule = useAppStore((s) => s.activeModule)
   const builderCourseId = useAppStore((s) => s.builderCourseId)
+  const previewCourseId = useAppStore((s) => s.previewCourseId)
   const Active = MODULES[activeModule] ?? DashboardModule
 
   // ── Full-screen Course Builder (overrides entire dashboard layout) ──
   if (builderCourseId) {
     return <CourseBuilder courseId={builderCourseId} />
+  }
+
+  // ── Full-screen Course Preview (student-facing player) ──
+  if (previewCourseId) {
+    return <CoursePlayer />
   }
 
   return (
