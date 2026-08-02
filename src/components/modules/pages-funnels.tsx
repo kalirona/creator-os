@@ -257,6 +257,71 @@ function LandingGenerator({ onDone, onCancel }: { onDone: (p: { id: string; titl
   )
 }
 
+function FunnelGenerator({ onDone, onCancel }: { onDone: (f: { id: string; name: string } | null) => void; onCancel: () => void }) {
+  const [selling, setSelling] = useState('')
+  const [category, setCategory] = useState('Course')
+  const [loading, setLoading] = useState(false)
+  const CATEGORIES = ['Course', 'Membership', 'Product', 'Community', 'Agency', 'SaaS', 'LeadMagnet', 'Newsletter', 'Webinar', 'Coaching']
+  const EXAMPLES = ['An SEO course for beginners', 'AI course teaching ChatGPT for business', 'A paid community for YouTubers', 'Monthly membership for coaches', 'A prompt pack for marketers', '1-on-1 coaching for freelancers', 'A design course for creators', 'A stock market mini-course']
+
+  const generate = async () => {
+    if (!selling.trim()) return
+    setLoading(true)
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 55000)
+      const res = await fetch('/api/ai/funnel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ selling, category }), signal: controller.signal })
+      clearTimeout(timeout)
+      const raw = await res.text()
+      if (!res.ok) { let m = 'Failed'; try { const j = JSON.parse(raw); m = j.error } catch { } toast.error(m); setLoading(false); return }
+      const data = JSON.parse(raw)
+      toast.success(`Funnel generated! -${data.creditsUsed} credits`, { description: 'Landing, checkout, upsell, and thank-you steps created. Edit and launch when ready.' })
+      onDone({ id: data.funnelId, name: data.funnelName })
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); setLoading(false) }
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-4">
+      <button onClick={onCancel} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition"><ArrowLeft className="h-4 w-4" /> Back</button>
+      <Card className="overflow-hidden">
+        <div className="flex items-center gap-3 border-b p-5 bg-gradient-to-br from-violet-500/10 to-card">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-violet-400 shadow-lg shadow-violet-500/30"><Megaphone className="h-6 w-6 text-white" /></div>
+          <div><h2 className="font-bold">AI Funnel Generator</h2><p className="text-xs text-muted-foreground">Tell us what you're selling. We'll build a complete sales funnel with landing, checkout, upsell, and thank-you pages.</p></div>
+        </div>
+        <CardContent className="p-5 space-y-4">
+          <div>
+            <Label>What are you selling?</Label>
+            <Textarea className="mt-1.5" rows={3} value={selling} onChange={(e) => setSelling(e.target.value)} placeholder="e.g. An SEO course for beginners who want to rank on Google" disabled={loading} />
+          </div>
+          <div>
+            <Label>Category</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Try an example:</p>
+            <div className="flex flex-wrap gap-1.5">{EXAMPLES.map((ex) => <button key={ex} onClick={() => setSelling(ex)} disabled={loading} className="rounded-full border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50">{ex}</button>)}</div>
+          </div>
+          {loading && (
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <div className="flex items-center gap-3 mb-3"><Loader2 className="h-5 w-5 animate-spin text-violet-500" /><div><p className="text-sm font-medium">Generating your funnel...</p><p className="text-xs text-muted-foreground">Building landing page, checkout, upsell, and thank-you sequence.</p></div></div>
+              <div className="space-y-1.5">{['Writing landing page copy', 'Structuring pricing & offers', 'Building upsell & thank-you steps', 'Linking funnel sequence', 'Optimizing conversion flow'].map((s, i) => (
+                <motion.div key={s} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.8 }} className="flex items-center gap-2 text-xs text-muted-foreground"><Check className="h-3 w-3 text-emerald-500" />{s}</motion.div>
+              ))}</div>
+            </div>
+          )}
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-xs text-muted-foreground">15 credits · ~30 seconds</p>
+            <Button onClick={generate} disabled={loading || !selling.trim()}><Sparkles className="h-4 w-4 mr-1.5" />{loading ? 'Generating...' : 'Generate funnel'}</Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 // ===== Section-based Page Editor (no canvas, no drag-drop) =====
 interface Section { id: string; pageId: string; type: string; content: Record<string, unknown>; position: number; isHidden: boolean }
 interface FullPage { id: string; title: string; slug: string; type: string; status: string; category: string; seoTitle: string; seoDescription: string; visits: number; conversions: number; sections: Section[] }
@@ -893,6 +958,7 @@ function SectionFields({ type, content, set }: { type: string; content: Record<s
 function FunnelsPanel() {
   const { data, loading, error, refetch } = useApi<{ funnels: { id: string; name: string; description: string; type: string; status: string; visits: number; conversions: number; revenue: number; steps: { id: string; name: string; type: string; position: number; isRequired: boolean; page: { id: string; title: string; slug: string } | null }[] }[]; stats: { total: number; live: number; totalVisits: number; totalRevenue: number } }>('/api/data/funnels')
   const [createOpen, setCreateOpen] = useState(false)
+  const [generatingFunnel, setGeneratingFunnel] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [creating, setCreating] = useState(false)
@@ -900,6 +966,10 @@ function FunnelsPanel() {
 
   if (loading) return <LoadingState size="lg" text="Loading funnels..." />
   if (error || !data) return <ErrorState description={error || 'Failed to load funnels.'} action={{ label: 'Retry', onClick: refetch }} />
+
+  if (generatingFunnel) {
+    return <FunnelGenerator onDone={(f) => { setGeneratingFunnel(false); if (f) setEditing({ id: f.id, name: f.name }) }} onCancel={() => setGeneratingFunnel(false)} />
+  }
 
   if (editing) {
     return <FunnelEditor funnelId={editing.id} funnelName={editing.name} onBack={() => setEditing(null)} onChanged={refetch} />
@@ -946,7 +1016,12 @@ function FunnelsPanel() {
         )})}
       </div>
 
-      <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Your Funnels</h3><Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1.5" />New Funnel</Button></div>
+      <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Your Funnels</h3>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setGeneratingFunnel(true)}><Sparkles className="h-4 w-4 mr-1.5 text-primary" />AI Funnel</Button>
+          <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1.5" />New Funnel</Button>
+        </div>
+      </div>
 
       {data.funnels.length === 0 ? (
         <Card><CardContent className="p-12 text-center"><Megaphone className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" /><p className="text-sm font-medium">No funnels yet</p><p className="text-xs text-muted-foreground mt-1">Create your first funnel to connect pages into a sales sequence.</p><Button size="sm" className="mt-3" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1.5" />New Funnel</Button></CardContent></Card>

@@ -141,6 +141,51 @@ Respond with ONLY the JSON.`,
 Respond with ONLY the JSON.`,
   },
   {
+    slug: 'FUNNEL_GENERATOR',
+    name: 'Funnel Generator',
+    description: 'Complete sales funnel with landing, checkout, upsell, and thank-you pages',
+    icon: 'Workflow',
+    category: 'Sales',
+    creditCost: 15,
+    temperature: 0.7,
+    maxTokens: 6000,
+    outputType: 'FUNNEL',
+    isPro: false,
+    systemPrompt: `You are CreatorOS Funnel AI, an expert at building high-converting sales funnels for digital products, courses, memberships, and communities.
+
+Generate a COMPLETE sales funnel as a single JSON object. Respond with ONLY the JSON (no markdown, no commentary).
+
+The JSON shape must be:
+{
+  "name": "funnel name (short, memorable)",
+  "description": "one line describing the offer",
+  "steps": [
+    { "type": "LANDING", "name": "step name", "pageTitle": "page title", "sections": [ ...landing page sections... ] },
+    { "type": "CHECKOUT", "name": "Checkout", "pageTitle": "Checkout" },
+    { "type": "UPSELL", "name": "Upsell", "pageTitle": "page title", "sections": [ ...upsell sections... ] },
+    { "type": "THANK_YOU", "name": "Thank You", "pageTitle": "Thank You", "sections": [ ...thank you sections... ] }
+  ]
+}
+
+Each "sections" array uses these section types (reuse the landing page shapes):
+- { "type": "HERO", "content": { "headline": "string", "subheadline": "string", "ctaText": "string", "ctaSecondary": "string", "emoji": "string" } }
+- { "type": "BENEFITS", "content": { "heading": "string", "items": [ { "title": "string", "description": "string" } ] } }
+- { "type": "FEATURES", "content": { "heading": "string", "subheading": "string", "items": [ { "icon": "emoji", "title": "string", "description": "string" } ] } }
+- { "type": "TESTIMONIALS", "content": { "heading": "string", "items": [ { "name": "string", "role": "string", "quote": "string" } ] } }
+- { "type": "PRICING", "content": { "heading": "string", "plans": [ { "name": "string", "price": number, "interval": "string", "features": ["string"], "cta": "string", "highlighted": boolean } ] } }
+- { "type": "FAQ", "content": { "heading": "string", "items": [ { "question": "string", "answer": "string" } ] } }
+- { "type": "CTA", "content": { "headline": "string", "subtext": "string", "ctaText": "string" } }
+
+Rules:
+- Include exactly 4 steps in this order: LANDING, CHECKOUT, UPSELL, THANK_YOU
+- LANDING: 6 sections (HERO, BENEFITS, FEATURES, TESTIMONIALS, PRICING, FAQ) + a final CTA
+- UPSELL: 3 sections (HERO, FEATURES, CTA) selling a premium upsell version of the offer
+- THANK_YOU: 2 sections (HERO with "You're in!" message, and a CTA to join the community or start)
+- CHECKOUT has NO sections (empty)
+- Make all copy specific to what the user is selling, benefit-driven and conversion-focused
+- Use emojis sparingly but effectively`,
+  },
+  {
     slug: 'BLOG_WRITER',
     name: 'Blog Writer',
     description: 'SEO blog post with title, meta, and structured sections',
