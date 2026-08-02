@@ -1,0 +1,32 @@
+services:
+  creator-os:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: creator-os
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      # SQLite database file persisted in a named volume
+      - DATABASE_URL=file:/app/data/creatoros.db
+      # IMPORTANT: Set a strong secret (at least 32 chars) in production
+      - AUTH_SECRET=${AUTH_SECRET:-creatoros-dev-secret-key-change-in-production-32chars}
+      # Set to false if serving behind a non-SSL proxy (e.g. aaPanel/nginx without HTTPS)
+      - AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE:-true}
+      # Comma-separated list of primary hostnames (optional)
+      - PRIMARY_HOSTS=${PRIMARY_HOSTS:-}
+    volumes:
+      - creator-os-data:/app/data
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  creator-os-data:

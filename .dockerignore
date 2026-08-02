@@ -1,0 +1,50 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.*
+
+# Next.js build output
+.next
+out
+build
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# Logs
+*.log
+server.log
+dev.log
+dev.out.log
+
+# Local database
+db
+*.db
+*.sqlite
+*.sqlite3
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+
+# Misc
+*.pem
+*.tsbuildinfo
+next-env.d.ts
+local-*
+.claude
+.z-ai-config
+.zscripts
+test
+prompt
+coverage
