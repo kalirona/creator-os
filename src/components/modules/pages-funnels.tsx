@@ -281,6 +281,7 @@ const SECTION_TYPES = [
 function PageEditor({ page, onBack }: { page: { id: string; title: string; slug: string }; onBack: () => void }) {
   const { data, loading, error, refetch } = useApi<{ page: FullPage }>(`/api/data/page-sections?pageId=${page.id}`)
   const [selectedSection, setSelectedSection] = useState<Section | null>(null)
+  const [hoveredSection, setHoveredSection] = useState<string | null>(null)
   const [showAddPanel, setShowAddPanel] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -304,6 +305,21 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
   const toggleHide = async (s: Section) => { setBusy(s.id); try { await callApi('/api/data/page-sections', 'PUT', { id: s.id, isHidden: !s.isHidden }); refetch() } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) } }
   const deleteSection = async (id: string) => { setBusy(id); try { await callApi(`/api/data/page-sections?id=${id}`, 'DELETE'); toast.success('Section deleted'); refetch() } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) } }
   const updateSection = async (id: string, content: Record<string, unknown>) => { try { await callApi('/api/data/page-sections', 'PUT', { id, content }); } catch { toast.error('Save failed') } }
+  const setSectionField = (s: Section, path: string, value: string) => {
+    const content = JSON.parse(JSON.stringify(s.content)) as Record<string, unknown>
+    const parts = path.split('.')
+    let node: Record<string, unknown> = content
+    for (let i = 0; i < parts.length - 1; i++) {
+      const key = parts[i]
+      const next = (node[key] as Record<string, unknown> | undefined) || {}
+      node[key] = next
+      node = next
+    }
+    node[parts[parts.length - 1]] = value
+    const updated = { ...s, content }
+    setSelectedSection(updated)
+    updateSection(s.id, content)
+  }
   const aiAction = async (s: Section, action: string) => { setBusy(s.id + action); try { const d = await callApi('/api/ai/section-rewrite', 'POST', { action, content: s.content, sectionType: s.type }); const updated = { ...s, content: d.content }; await updateSection(s.id, d.content); toast.success(`AI ${action.toLowerCase()} done! -${d.creditsUsed} credits`); refetch() } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) } }
 
   const reorderSections = async (ids: string[]) => {
@@ -576,28 +592,84 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
                     </Button>
                   </div>
                 ) : (
-                  pageData.sections.map((s) => {
+                  pageData.sections.map((s, i) => {
                     const isSelected = selectedSection?.id === s.id
+                    const isHovered = hoveredSection === s.id
+                    const meta = SECTION_TYPES.find((t) => t.type === s.type)
                     if (s.isHidden) return null
                     return (
                       <div
                         key={s.id}
                         onClick={() => setSelectedSection(isSelected ? null : s)}
+                        onMouseEnter={() => setHoveredSection(s.id)}
+                        onMouseLeave={() => setHoveredSection(null)}
                         className={cn(
                           'relative rounded-xl border-2 transition-all cursor-pointer',
-                          isSelected ? 'border-primary shadow-lg' : 'border-transparent hover:border-muted',
+                          isSelected ? 'border-primary shadow-lg' : isHovered ? 'border-primary/50 shadow-sm' : 'border-transparent',
                         )}
                       >
-                        <div
-                          className={cn(
-                            'absolute -top-2.5 left-3 z-10 rounded-full px-2 py-0.5 text-[10px] font-medium shadow-sm transition',
-                            isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
-                          )}
-                        >
-                          {SECTION_TYPES.find((t) => t.type === s.type)?.name || s.type}
-                        </div>
-                        <div className="pointer-events-none select-none">
-                          <SectionRenderer type={s.type} content={s.content} />
+                        {(isSelected || isHovered) && (
+                          <div className="absolute -top-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-0.5 rounded-full border bg-background px-1.5 py-1 shadow-md">
+                            <span className="px-1.5 text-[10px] font-semibold text-primary whitespace-nowrap">
+                              {meta?.name || s.type}
+                            </span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSelectedSection(isSelected ? null : s) }}
+                              className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                              title="Edit section"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); moveSection(s.id, 'moveUp') }}
+                              disabled={busy === s.id + 'moveUp' || i === 0}
+                              className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-30"
+                              title="Move up"
+                            >
+                              <ArrowUp className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); moveSection(s.id, 'moveDown') }}
+                              disabled={busy === s.id + 'moveDown' || i === pageData.sections.length - 1}
+                              className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-30"
+                              title="Move down"
+                            >
+                              <ArrowDown className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); duplicateSection(s.id) }}
+                              disabled={busy === s.id}
+                              className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-30"
+                              title="Duplicate section"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleHide(s) }}
+                              disabled={busy === s.id}
+                              className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-30"
+                              title={s.isHidden ? 'Show section' : 'Hide section'}
+                            >
+                              {s.isHidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); deleteSection(s.id) }}
+                              disabled={busy === s.id}
+                              className="rounded-full p-1 text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition disabled:opacity-30"
+                              title="Delete section"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
+                        <div className="select-none">
+                          <SectionRenderer
+                            type={s.type}
+                            content={s.content}
+                            selected={isSelected}
+                            editing={isSelected}
+                            onFieldChange={(path, value) => setSectionField(s, path, value)}
+                          />
                         </div>
                       </div>
                     )
