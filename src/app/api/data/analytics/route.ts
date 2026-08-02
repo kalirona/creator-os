@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
+import { createRequestContext } from '@/lib/context'
 import { db } from '@/lib/db'
 export const dynamic = 'force-dynamic'
 export async function GET() {
-  const [courses, products, orders, customers, posts, campaigns, affiliates, pages, plans] = await Promise.all([
+  try {
+    await createRequestContext()
+    const [courses, products, orders, customers, posts, campaigns, affiliates, pages, plans] = await Promise.all([
     db.course.findMany(), db.product.findMany(), db.order.findMany({ include: { product: true } }),
     db.customer.findMany(), db.communityPost.findMany(), db.emailCampaign.findMany(),
     db.affiliate.findMany(), db.webPage.findMany(), db.membershipPlan.findMany(),
@@ -46,4 +49,10 @@ export async function GET() {
       name: c.name, openRate: c.openRate, clickRate: c.clickRate, recipients: c.recipients,
     })),
   })
+  } catch (e) {
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
+  }
 }

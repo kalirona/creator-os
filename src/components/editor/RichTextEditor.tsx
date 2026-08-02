@@ -10,7 +10,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import {
   Bold, Italic, Strikethrough, Code, Heading1, Heading2, Heading3,
   List, ListOrdered, Quote, Link as LinkIcon, Image as ImageIcon,
-  Table as TableIcon, Code as CodeIcon, Undo, Redo,
+  Table as TableIcon, Code as CodeIcon,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Undo as UndoIcon, Redo as RedoIcon,
 } from 'lucide-react'

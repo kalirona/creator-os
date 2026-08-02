@@ -4,13 +4,10 @@ import { DollarSign, Users, TrendingUp, Eye, Globe, Mail, Download } from 'lucid
 import { useApi, formatCurrency, formatNumber } from '@/hooks/use-api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
 import { MetricCard } from '@/components/ui-enterprise/MetricCard'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
 import { ErrorState } from '@/components/ui-enterprise/ErrorState'
-import { SectionHeader } from '@/components/ui-enterprise/SectionHeader'
 import { StatGrid } from '@/components/ui-enterprise/StatGrid'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 
@@ -29,18 +26,41 @@ export function AnalyticsModule() {
   if (loading) return <LoadingState size="lg" text="Loading analytics..." />
   if (error || !data) return <ErrorState description={error || 'Failed to load analytics.'} action={{ label: 'Retry', onClick: refetch }} />
 
+  const exportReport = () => {
+    const rows = [
+      ['Metric', 'Value'],
+      ['Revenue', formatCurrency(data.stats.revenue)],
+      ['MRR', formatCurrency(data.stats.mrr)],
+      ['ARR', formatCurrency(data.stats.arr)],
+      ['Students', String(data.stats.students)],
+      ['Members', String(data.stats.members)],
+      ['Products', String(data.stats.products)],
+      ['Courses', String(data.stats.courses)],
+      ['Customers', String(data.stats.customers)],
+    ]
+    const csv = rows.map(r => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `analytics-${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('Analytics exported')
+  }
+
   const kpis = [
-    { label: 'Revenue (YTD)', value: formatCurrency(data.stats.revenue, { compact: true }), delta: '+12.4%', icon: DollarSign },
-    { label: 'MRR', value: formatCurrency(data.stats.mrr, { compact: true }), delta: '+8.2%', icon: TrendingUp },
-    { label: 'ARR', value: formatCurrency(data.stats.arr, { compact: true }), delta: '+8.2%', icon: TrendingUp },
-    { label: 'Students', value: formatNumber(data.stats.students, true), delta: '+5.1%', icon: Users },
+    { label: 'Revenue (YTD)', value: formatCurrency(data.stats.revenue, { compact: true }), change: '+12.4%', changeType: 'increase', icon: DollarSign },
+    { label: 'MRR', value: formatCurrency(data.stats.mrr, { compact: true }), change: '+8.2%', changeType: 'increase', icon: TrendingUp },
+    { label: 'ARR', value: formatCurrency(data.stats.arr, { compact: true }), change: '+8.2%', changeType: 'increase', icon: TrendingUp },
+    { label: 'Students', value: formatNumber(data.stats.students, true), change: '+5.1%', changeType: 'increase', icon: Users },
   ]
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">Deep-dive performance across revenue, audience, and engagement.</p>
-        <Button variant="outline" size="sm" onClick={() => toast.success('Report exporting', { description: 'Your analytics report (PDF) will download shortly.' })}><Download className="h-4 w-4 mr-1.5" /> Export report</Button>
+        <Button variant="outline" size="sm" onClick={exportReport}><Download className="h-4 w-4 mr-1.5" /> Export report</Button>
       </div>
 
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
@@ -49,7 +69,7 @@ export function AnalyticsModule() {
             key={k.label}
             title={k.label}
             value={k.value}
-            change={k.delta}
+            change={k.change}
             changeType="increase"
             icon={<k.icon className="h-5 w-5" />}
           />

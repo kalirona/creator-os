@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useAppStore } from '@/store/app-store'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -28,6 +29,34 @@ export function SettingsModule() {
   const [twoFA, setTwoFA] = useState(true)
   const [notifEmail, setNotifEmail] = useState(true)
   const [notifPush, setNotifPush] = useState(false)
+  const [showAvatarDialog, setShowAvatarDialog] = useState(false)
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const handleSaveProfile = () => {
+    setSaving(true)
+    setTimeout(() => {
+      setSaving(false)
+      toast.success('Profile saved')
+    }, 600)
+  }
+
+  const handleChangePassword = async () => {
+    setSaving(true)
+    await new Promise((r) => setTimeout(r, 1000))
+    toast.success('Password updated', { description: 'Your password has been changed successfully.' })
+    setShowPasswordDialog(false)
+    setSaving(false)
+  }
+
+  const handleUpdatePayment = async () => {
+    setSaving(true)
+    await new Promise((r) => setTimeout(r, 1200))
+    toast.success('Payment method updated')
+    setShowPaymentDialog(false)
+    setSaving(false)
+  }
 
   return (
     <div className="space-y-5">
@@ -47,7 +76,10 @@ export function SettingsModule() {
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16"><AvatarFallback className="bg-primary/15 text-primary text-lg">AR</AvatarFallback></Avatar>
-                <div><Button size="sm" variant="outline" onClick={() => toast.info('Upload avatar', { description: 'Choose an image file (JPG, PNG, GIF — max 2MB)' })}>Change avatar</Button><p className="text-xs text-muted-foreground mt-1.5">JPG, PNG or GIF. Max 2MB.</p></div>
+                <div>
+                  <Button size="sm" variant="outline" onClick={() => setShowAvatarDialog(true)}>Change avatar</Button>
+                  <p className="text-xs text-muted-foreground mt-1.5">JPG, PNG or GIF. Max 2MB.</p>
+                </div>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div><Label>Full name</Label><Input defaultValue="Alex Rivera" className="mt-1.5" /></div>
@@ -56,7 +88,7 @@ export function SettingsModule() {
                 <div><Label>Timezone</Label><Select defaultValue="Asia/Manila"><SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Asia/Manila">Asia/Manila (PHT)</SelectItem><SelectItem value="America/New_York">America/New_York (EST)</SelectItem><SelectItem value="Europe/London">Europe/London (GMT)</SelectItem></SelectContent></Select></div>
               </div>
               <div><Label>Bio</Label><Textarea defaultValue="Creator educator building the future of online business." className="mt-1.5" rows={3} /></div>
-              <div className="flex justify-end gap-2"><Button variant="outline" size="sm">Cancel</Button><Button size="sm" onClick={() => toast.success('Profile saved')}>Save changes</Button></div>
+              <div className="flex justify-end gap-2"><Button variant="outline" size="sm">Cancel</Button><Button size="sm" onClick={handleSaveProfile} disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</Button></div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -117,7 +149,7 @@ export function SettingsModule() {
             <CardContent>
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div className="flex items-center gap-3"><div className="flex h-8 w-12 items-center justify-center rounded bg-gradient-to-br from-slate-700 to-slate-900 text-[10px] text-white font-bold">VISA</div><div><p className="text-sm font-medium">•••• •••• •••• 4242</p><p className="text-xs text-muted-foreground">Expires 08/27</p></div></div>
-                <Button size="sm" variant="outline" onClick={() => toast.info('Update payment method', { description: 'Add a new card or change your default.' })}>Update</Button>
+                <Button size="sm" variant="outline" onClick={() => setShowPaymentDialog(true)}>Update</Button>
               </div>
             </CardContent>
           </Card>
@@ -133,7 +165,7 @@ export function SettingsModule() {
               </div>
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div className="flex items-center gap-3"><Shield className="h-4 w-4 text-muted-foreground" /><div><p className="text-sm font-medium">Password</p><p className="text-xs text-muted-foreground">Last changed 3 months ago</p></div></div>
-                <Button size="sm" variant="outline" onClick={() => toast.info('Change password', { description: 'A secure reset link will be emailed to you.' })}>Change</Button>
+                <Button size="sm" variant="outline" onClick={() => setShowPasswordDialog(true)}>Change</Button>
               </div>
               <div>
                 <p className="text-sm font-semibold mb-2">Active sessions</p>
@@ -170,6 +202,55 @@ export function SettingsModule() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Change Password Dialog */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Change Password</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5"><Label>Current password</Label><Input type="password" /></div>
+            <div className="space-y-1.5"><Label>New password</Label><Input type="password" /></div>
+            <div className="space-y-1.5"><Label>Confirm new password</Label><Input type="password" /></div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>Cancel</Button>
+            <Button onClick={handleChangePassword} disabled={saving}>{saving ? 'Updating...' : 'Update Password'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Update Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Update Payment Method</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5"><Label>Card number</Label><Input placeholder="4242 4242 4242 4242" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5"><Label>Expiry</Label><Input placeholder="MM/YY" /></div>
+              <div className="space-y-1.5"><Label>CVC</Label><Input placeholder="123" /></div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>Cancel</Button>
+            <Button onClick={handleUpdatePayment} disabled={saving}>{saving ? 'Updating...' : 'Update Card'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Avatar Dialog */}
+      <Dialog open={showAvatarDialog} onOpenChange={setShowAvatarDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Change Avatar</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5"><Label>Image URL</Label><Input placeholder="https://example.com/avatar.jpg" /></div>
+            <p className="text-xs text-muted-foreground">Paste a direct image URL for your avatar.</p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowAvatarDialog(false)}>Cancel</Button>
+            <Button onClick={() => { toast.success('Avatar updated'); setShowAvatarDialog(false) }}>Update Avatar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

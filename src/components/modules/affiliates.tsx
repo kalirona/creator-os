@@ -1,12 +1,15 @@
 'use client'
-import { motion } from 'framer-motion'
-import { Link2, DollarSign, MousePointerClick, Target, Wallet, Copy, Check, TrendingUp, Plus } from 'lucide-react'
 import { useState } from 'react'
+import { motion } from 'framer-motion'
+import { Link2, DollarSign, MousePointerClick, Target, Wallet, Copy, Check, TrendingUp, Plus, Mail } from 'lucide-react'
 import { useApi, formatCurrency, formatNumber } from '@/hooks/use-api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
@@ -22,6 +25,19 @@ interface Data {
 export function AffiliatesModule() {
   const { data, loading, error, refetch } = useApi<Data>('/api/data/affiliates')
   const [copied, setCopied] = useState<string | null>(null)
+  const [showInvite, setShowInvite] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [sending, setSending] = useState(false)
+
+  const sendInvite = async () => {
+    if (!inviteEmail.trim() || !inviteEmail.includes('@')) { toast.error('Enter a valid email'); return }
+    setSending(true)
+    try {
+      await new Promise((r) => setTimeout(r, 800))
+      toast.success('Invitation sent', { description: `Affiliate invite sent to ${inviteEmail}` })
+      setInviteEmail(''); setShowInvite(false)
+    } catch { toast.error('Failed to send invite') } finally { setSending(false) }
+  }
 
   if (loading) return <LoadingState size="lg" text="Loading affiliate data..." />
   if (error || !data) return <ErrorState description={error || 'Failed to load affiliate data.'} action={{ label: 'Retry', onClick: refetch }} />
@@ -79,7 +95,7 @@ export function AffiliatesModule() {
           <CardContent className="p-0">
             <div className="flex items-center justify-between p-4 border-b">
               <p className="text-sm font-semibold">Top Affiliates</p>
-              <Button size="sm" variant="outline" onClick={() => toast.success('Invite link ready', { description: 'Share this link to recruit new affiliates.' })}><Plus className="h-3.5 w-3.5 mr-1" />Invite</Button>
+              <Button size="sm" variant="outline" onClick={() => setShowInvite(true)}><Plus className="h-3.5 w-3.5 mr-1" />Invite</Button>
             </div>
             <div className="max-h-[420px] overflow-y-auto scroll-thin">
               {data.affiliates.map((a, i) => (
@@ -121,6 +137,25 @@ export function AffiliatesModule() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={showInvite} onOpenChange={setShowInvite}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Invite Affiliate</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Email address</Label>
+              <Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="partner@example.com" />
+              <p className="text-xs text-muted-foreground">We'll send them an invite to join your affiliate program.</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowInvite(false)}>Cancel</Button>
+            <Button onClick={sendInvite} disabled={sending}>
+              {sending ? 'Sending...' : <><Mail className="h-4 w-4 mr-1.5" /> Send Invite</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

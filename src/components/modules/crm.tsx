@@ -8,6 +8,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { MetricCard } from '@/components/ui-enterprise/MetricCard'
@@ -34,6 +37,26 @@ export function CrmModule() {
   const { data, loading, error, refetch } = useApi<Data>('/api/data/crm')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Data['customers'][0] | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const addCustomer = async () => {
+    if (!newName.trim() || !newEmail.trim()) { toast.error('Name and email are required'); return }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/data/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName.trim(), email: newEmail.trim() }),
+      })
+      if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Failed') }
+      toast.success('Customer added', { description: `${newName} has been added to your CRM.` })
+      setNewName(''); setNewEmail(''); setShowAddForm(false)
+      refetch()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setSaving(false) }
+  }
 
   if (loading) return <LoadingState size="lg" text="Loading CRM data..." />
   if (error || !data) return <ErrorState description={error || 'Failed to load CRM data.'} action={{ label: 'Retry', onClick: refetch }} />
@@ -72,7 +95,7 @@ export function CrmModule() {
           <TabsContent value="customers" className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <SearchToolbar placeholder="Search customers..." value={query} onChange={(value) => setQuery(value)} />
-            <Button size="sm" onClick={() => toast.success('Add customer form opened', { description: 'Manually add a customer to your CRM.' })}><Users className="h-4 w-4 mr-1.5" /> Add Customer</Button>
+            <Button size="sm" onClick={() => setShowAddForm(true)}><Users className="h-4 w-4 mr-1.5" /> Add Customer</Button>
           </div>
           <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
             <Card>
@@ -159,6 +182,28 @@ export function CrmModule() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Add Customer</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Full name</Label>
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="John Doe" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Email</Label>
+              <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="john@example.com" />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
+            <Button onClick={addCustomer} disabled={saving}>
+              {saving ? 'Adding...' : 'Add Customer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -95,10 +95,18 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  const tools = await db.aiTool.findMany({
+  try {
+    await createRequestContext()
+    const tools = await db.aiTool.findMany({
     where: { isVisible: true },
     orderBy: [{ category: 'asc' }, { name: 'asc' }],
     select: { id: true, slug: true, name: true, description: true, icon: true, category: true, creditCost: true, outputType: true, isPro: true },
   })
   return NextResponse.json({ tools })
+  } catch (e) {
+    if (e instanceof Error && e.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
+  }
 }

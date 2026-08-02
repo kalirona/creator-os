@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/auth/middleware'
+import { authConfig } from '@/lib/auth/config'
 
 function primaryHosts(): Set<string> {
   const set = new Set<string>(['creatoros.io', 'www.creatoros.io', 'localhost', 'os.sitenexai.com', 'www.sitenexai.com'])
@@ -37,10 +38,31 @@ export async function middleware(request: NextRequest) {
 
   const publicRoutes = ['/login', '/register', '/api/auth', '/p/', '/f/', '/d/']
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route))
+  const isApiRoute = pathname.startsWith('/api/')
 
   if (isPublicRoute) return NextResponse.next()
 
-  return updateSession(request)
+  // For API routes, don't redirect to login - let handlers return 401 JSON
+  // For page routes, redirect to login if not authenticated
+  if (!isApiRoute) {
+    return updateSession(request)
+  }
+
+  // For API routes, only refresh token if present, don't redirect
+  const sessionToken = request.cookies.get(authConfig.cookieName)?.value
+  if (!sessionToken) {
+    return NextResponse.next()
+  }
+
+  // Try to refresh the session token silently
+  try {
+    return await updateSession(request)
+  } catch {
+    // If updateSession throws (invalid token), delete cookie and continue
+    const response = NextResponse.next()
+    response.cookies.delete(authConfig.cookieName)
+    return response
+  }
 }
 
 export const config = {

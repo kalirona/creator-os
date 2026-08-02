@@ -253,7 +253,7 @@ export function ProductsModule() {
                       <DropdownMenuItem onClick={() => setEditingProduct(p)}>
                         <Pencil className="h-4 w-4 mr-2" /> Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { toast.info('Opening preview'); setActiveModule('store') }}>
+                      <DropdownMenuItem onClick={() => { window.open(`/product/${p.id}`, '_blank') }}>
                         <Eye className="h-4 w-4 mr-2" /> Preview
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { toast.info('Viewing sales'); setActiveModule('store') }}>

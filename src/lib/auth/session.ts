@@ -35,30 +35,3 @@ export async function decryptSession(token: string): Promise<SessionPayload | nu
   }
 }
 
-export async function encryptRefreshToken(userId: string, tokenId: string): Promise<string> {
-  const iat = Math.floor(Date.now() / 1000)
-  const exp = iat + authConfig.refreshTokenMaxAge
-
-  return new SignJWT({ userId, tokenId })
-    .setProtectedHeader({ alg: authConfig.algorithm })
-    .setIssuedAt(iat)
-    .setExpirationTime(exp)
-    .setIssuer(authConfig.issuer)
-    .sign(new TextEncoder().encode(authConfig.secret))
-}
-
-export async function decryptRefreshToken(token: string): Promise<{ userId: string; tokenId: string } | null> {
-  try {
-    const { payload } = await jwtVerify(
-      token,
-      new TextEncoder().encode(authConfig.secret),
-      {
-        algorithms: [authConfig.algorithm],
-        issuer: authConfig.issuer,
-      }
-    )
-    return { userId: payload.userId as string, tokenId: payload.tokenId as string }
-  } catch {
-    return null
-  }
-}

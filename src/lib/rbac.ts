@@ -121,32 +121,3 @@ export function hasPermission(
   )
 }
 
-export function hasPermissionOrThrow(
-  role: Role,
-  resource: Resource,
-  action: Action
-): void {
-  if (!hasPermission(role, resource, action)) {
-    throw new Error(`Permission denied: ${role} cannot ${action} ${resource}`)
-  }
-}
-
-export function getResourcePermissions(role: Role): Permission[] {
-  return ALL_PERMISSIONS.filter((p) => p.role === role)
-}
-
-export const ROLE_HIERARCHY: Record<Role, number> = {
-  OWNER: 100,
-  ADMIN: 90,
-  MANAGER: 80,
-  INSTRUCTOR: 70,
-  MODERATOR: 60,
-  MEMBER: 50,
-  STUDENT: 40,
-  AFFILIATE: 30,
-  GUEST: 20,
-}
-
-export function canAccess(role: Role, requiredRole: Role): boolean {
-  return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY[requiredRole]
-}

@@ -46,15 +46,6 @@ export async function requireAdmin() {
   return user
 }
 
-export async function requireWorkspaceMember(workspaceId: string) {
-  const user = await requireUser()
-  const membership = await db.workspaceMember.findFirst({
-    where: { userId: user.id, workspaceId },
-  })
-  if (!membership) redirect('/unauthorized')
-  return { ...user, membership }
-}
-
 export async function createSession(userId: string, workspaceId?: string) {
   const now = new Date()
   const expiresAt = new Date(now.getTime() + authConfig.sessionMaxAge * 1000)
