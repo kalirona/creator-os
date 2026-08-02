@@ -12,7 +12,7 @@ services:
       - PORT=3007
       - HOSTNAME=0.0.0.0
       - DATABASE_URL=file:/app/data/creatoros.db
-      - AUTH_SECRET=change-me-to-strong-32-char-string
+      - AUTH_SECRET=change-me-to-strong-32-char-string-now
       - AUTH_COOKIE_SECURE=false
       - PRIMARY_HOSTS=
     volumes:
