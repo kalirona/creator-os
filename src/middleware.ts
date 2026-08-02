@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/auth/middleware'
 
-const PRIMARY_HOSTS = new Set(['creatoros.io', 'www.creatoros.io', 'localhost'])
+function primaryHosts(): Set<string> {
+  const set = new Set<string>(['creatoros.io', 'www.creatoros.io', 'localhost', 'os.sitenexai.com', 'www.sitenexai.com'])
+  const extra = process.env.PRIMARY_HOSTS
+  if (extra) {
+    for (const h of extra.split(',')) {
+      const clean = h.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/:\d+$/, '')
+      if (clean) set.add(clean)
+    }
+  }
+  return set
+}
 
 function isCustomDomainHost(host: string) {
   const h = host.replace(/:\d+$/, '').toLowerCase()
-  if (PRIMARY_HOSTS.has(h)) return false
+  const hosts = primaryHosts()
+  if (hosts.has(h)) return false
   if (h.endsWith('.creatoros.io')) return false
+  if (h.endsWith('.sitenexai.com')) return false
   return true
 }
 

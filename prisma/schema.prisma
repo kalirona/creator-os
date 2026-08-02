@@ -439,7 +439,7 @@ model PageVersion {
 model Funnel {
   id           String   @id @default(cuid())
   workspaceId  String
-  slug         String   @unique
+  slug         String   @unique @default(cuid())
   name         String
   description  String   @default("")
   type         String   @default("SALES") // SALES | LEAD | WEBINAR | LAUNCH
