@@ -963,6 +963,7 @@ function FunnelsPanel() {
   const [newDesc, setNewDesc] = useState('')
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
+  const [previewPage, setPreviewPage] = useState<{ pageId: string; name: string } | null>(null)
 
   if (loading) return <LoadingState size="lg" text="Loading funnels..." />
   if (error || !data) return <ErrorState description={error || 'Failed to load funnels.'} action={{ label: 'Retry', onClick: refetch }} />
@@ -1039,12 +1040,22 @@ function FunnelsPanel() {
           {f.steps.length > 0 && (
             <CardContent>
               <div className="flex items-center gap-1 overflow-x-auto scroll-thin pb-2">
-                {f.steps.map((s, i) => { const Icon = STEP_ICONS[s.type] || FileText; return (
+                {f.steps.map((s, i) => { const Icon = STEP_ICONS[s.type] || FileText; const linked = s.page; return (
                   <div key={s.id} className="flex items-center shrink-0">
-                    <div className={cn('flex flex-col items-center gap-1 rounded-lg border p-2.5 w-28 text-center', s.page ? 'bg-card' : 'bg-muted/30 border-dashed')}>
+                    <div className={cn('group relative flex flex-col items-center gap-1 rounded-lg border p-2.5 w-28 text-center', linked ? 'bg-card' : 'bg-muted/30 border-dashed')}>
                       <div className={cn('flex h-7 w-7 items-center justify-center rounded-full', s.isRequired ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}><Icon className="h-3.5 w-3.5" /></div>
                       <p className="text-xs font-medium leading-tight">{s.name}</p>
                       <Badge variant="secondary" className="text-[10px] h-4 px-1">{s.type}</Badge>
+                      {linked && (
+                        <button
+                          onClick={() => setPreviewPage({ pageId: linked.id, name: s.name })}
+                          className="absolute inset-0 flex items-center justify-center gap-1 rounded-lg bg-background/90 text-primary opacity-0 group-hover:opacity-100 transition backdrop-blur-sm"
+                          title={`Preview ${s.name}`}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span className="text-[11px] font-medium">Preview</span>
+                        </button>
+                      )}
                     </div>
                     {i < f.steps.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mx-0.5" />}
                   </div>
@@ -1065,6 +1076,8 @@ function FunnelsPanel() {
           <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button onClick={createFunnel} disabled={creating}>{creating ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Creating...</> : 'Create funnel'}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <StepPreviewDialog preview={previewPage} onClose={() => setPreviewPage(null)} />
     </div>
   )
 }
@@ -1088,6 +1101,7 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
   const [addType, setAddType] = useState('LANDING')
   const [addName, setAddName] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
+  const [previewPage, setPreviewPage] = useState<{ pageId: string; name: string } | null>(null)
   const [activeDrag, setActiveDrag] = useState<{ id: string; name: string } | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
@@ -1208,6 +1222,13 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
                                     {pages.map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
                                   </SelectContent>
                                 </Select>
+                                <button
+                                  onClick={() => s.page ? setPreviewPage({ pageId: s.page.id, name: s.name }) : toast.info('Link a page to preview this step')}
+                                  className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                  title="Preview this step"
+                                >
+                                  <Eye className="h-2.5 w-2.5" />Preview
+                                </button>
                                 <button onClick={() => toggleRequired(s)} className={cn('flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition', s.isRequired ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')} title={s.isRequired ? 'Required step' : 'Optional step'}>{s.isRequired ? <Check className="h-2.5 w-2.5" /> : <Zap className="h-2.5 w-2.5" />}{s.isRequired ? 'Required' : 'Optional'}</button>
                               </div>
                             </div>
@@ -1253,6 +1274,8 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
           <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button><Button onClick={addStep} disabled={busy === 'add'}>{busy === 'add' ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Adding...</> : 'Add step'}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <StepPreviewDialog preview={previewPage} onClose={() => setPreviewPage(null)} />
     </div>
   )
 }
@@ -1260,6 +1283,45 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
 function SortableStep({ id, children }: { id: string; children: (p: { setNodeRef: (node: HTMLElement | null) => void; style: React.CSSProperties; attributes: React.HTMLAttributes<HTMLElement>; listeners: DraggableSyntheticListeners | undefined; isDragging: boolean }) => React.ReactNode }) {
   const { setNodeRef, transform, transition, attributes, listeners, isDragging } = useSortable({ id })
   return children({ setNodeRef, attributes, listeners, isDragging, style: { transform: CSS.Transform.toString(transform), transition } })
+}
+
+function StepPreviewDialog({ preview, onClose }: { preview: { pageId: string; name: string } | null; onClose: () => void }) {
+  const { data, loading } = useApi<{ page: FullPage }>(preview ? `/api/data/page-sections?pageId=${preview.pageId}` : null, [preview?.pageId])
+
+  return (
+    <Dialog open={!!preview} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="px-5 py-3 border-b shrink-0">
+          <DialogTitle className="flex items-center gap-2">
+            <Eye className="h-4 w-4 text-primary" />
+            {preview?.name}
+          </DialogTitle>
+          <DialogDescription>
+            {data?.page?.title || preview?.name} — how this step looks to visitors.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto scroll-thin bg-grid">
+          {loading ? (
+            <LoadingState size="lg" text="Loading preview..." />
+          ) : !data?.page?.sections?.length ? (
+            <div className="p-16 text-center">
+              <Layout className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-sm font-medium">This page has no sections yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Open the page editor to add sections.</p>
+            </div>
+          ) : (
+            <div className="max-w-4xl mx-auto">
+              {data.page.sections.map((s) => (
+                <div key={s.id} className="pointer-events-none select-none">
+                  <SectionRenderer type={s.type} content={s.content} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 // ===== Navigation panel =====
