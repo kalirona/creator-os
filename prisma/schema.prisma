@@ -439,6 +439,7 @@ model PageVersion {
 model Funnel {
   id           String   @id @default(cuid())
   workspaceId  String
+  slug         String   @unique
   name         String
   description  String   @default("")
   type         String   @default("SALES") // SALES | LEAD | WEBINAR | LAUNCH
@@ -449,7 +450,8 @@ model Funnel {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  steps        FunnelStep[]
+  steps         FunnelStep[]
+  customDomains CustomDomain[]
 }
 
 model FunnelStep {
@@ -463,6 +465,22 @@ model FunnelStep {
 
   funnel      Funnel   @relation(fields: [funnelId], references: [id], onDelete: Cascade)
   page        Page?    @relation(fields: [pageId], references: [id], onDelete: SetNull)
+}
+
+model CustomDomain {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  domain       String   @unique
+  funnelId     String?
+  status       String   @default("PENDING") // PENDING | VERIFIED | ACTIVE | FAILED
+  verifiedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  funnel       Funnel?  @relation(fields: [funnelId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([funnelId])
 }
 
 model BlogPost {

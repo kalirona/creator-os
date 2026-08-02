@@ -1095,7 +1095,8 @@ const FUNNEL_STEP_TYPES: { type: string; label: string; desc: string; icon: Reac
 ]
 
 function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: string; funnelName: string; onBack: () => void; onChanged: () => void }) {
-  const { data, loading, error, refetch } = useApi<{ steps: { id: string; name: string; type: string; position: number; isRequired: boolean; pageId: string | null; page: { id: string; title: string; slug: string } | null }[] }>(`/api/data/funnel-steps?funnelId=${funnelId}`)
+  const funnelInfo = useApi<{ funnel: { id: string; name: string; slug: string; description: string; type: string; status: string; visits: number; conversions: number; revenue: number; steps: { id: string; name: string; type: string; position: number; isRequired: boolean; pageId: string | null; page: { id: string; title: string; slug: string } | null }[]; customDomains: { id: string; domain: string; status: string }[] } }>(`/api/data/funnels?id=${funnelId}`, [funnelId])
+  const { data, loading, error, refetch } = useApi<{ steps: { id: string; name: string; type: string; position: number; isRequired: boolean; pageId: string | null; page: { id: string; title: string; slug: string } | null }[] }>(`/api/data/funnel-steps?funnelId=${funnelId}`, [funnelId])
   const pageOptions = useApi<{ pages: { id: string; title: string; slug: string }[] }>('/api/data/pages')
   const [addOpen, setAddOpen] = useState(false)
   const [addType, setAddType] = useState('LANDING')
@@ -1103,6 +1104,7 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
   const [busy, setBusy] = useState<string | null>(null)
   const [previewPage, setPreviewPage] = useState<{ pageId: string; name: string } | null>(null)
   const [activeDrag, setActiveDrag] = useState<{ id: string; name: string } | null>(null)
+  const [domainOpen, setDomainOpen] = useState(false)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const callApi = async (url: string, method: string, body?: unknown) => {
@@ -1114,6 +1116,7 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
 
   const steps = data?.steps ?? []
   const pages = pageOptions.data?.pages ?? []
+  const funnel = funnelInfo.data?.funnel
 
   const addStep = async () => {
     if (!addName.trim()) { toast.error('Step name is required'); return }
@@ -1162,6 +1165,35 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
     catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') }
   }
 
+  const publishFunnel = async (target?: string) => {
+    setBusy('publish')
+    try {
+      const next = target || (funnel?.status === 'LIVE' ? 'PAUSED' : 'LIVE')
+      await callApi('/api/data/funnels', 'PUT', { id: funnelId, status: next })
+      toast.success(next === 'LIVE' ? 'Funnel is live!' : 'Funnel unpublished', { description: next === 'LIVE' ? 'Your funnel is now public.' : 'Your funnel is no longer public.' })
+      funnelInfo.refetch()
+      onChanged()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) }
+  }
+
+  const addDomain = async (domain: string) => {
+    if (!domain.trim()) { toast.error('Enter a domain name'); return null }
+    setBusy('domain')
+    try {
+      const d = await callApi('/api/data/domains', 'POST', { domain, funnelId })
+      toast.success('Domain connected', { description: 'Point your DNS A/CNAME record to your CreatorOS host.' })
+      funnelInfo.refetch()
+      return d.domain
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); return null } finally { setBusy(null) }
+  }
+
+  const removeDomain = async (id: string, domain: string) => {
+    if (!confirm(`Disconnect "${domain}"?`)) return
+    setBusy('domain')
+    try { await callApi(`/api/data/domains?id=${id}`, 'DELETE'); toast.success('Domain disconnected'); funnelInfo.refetch() }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) }
+  }
+
   const onDragEnd = async (e: DragEndEvent) => {
     setActiveDrag(null)
     const { active, over } = e
@@ -1181,15 +1213,44 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
   if (error || !data) return <ErrorState description={error || 'Failed to load steps.'} action={{ label: 'Retry', onClick: refetch }} />
 
   const STEP_ICON: Record<string, React.ComponentType<{ className?: string }>> = { LANDING: Rocket, CHECKOUT: ShoppingCart, UPSELL: TrendingUp, DOWNSELL: TrendingUp, THANK_YOU: Check, EMAIL: Mail, COMMUNITY_INVITE: Users, COURSE_ACCESS: FileText }
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const funnelUrl = funnel?.slug ? `${baseUrl}/f/${funnel.slug}` : ''
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <Button size="sm" variant="ghost" onClick={onBack} className="gap-1.5"><ArrowLeft className="h-4 w-4" />Back</Button>
-          <div><h2 className="text-lg font-bold">{funnelName}</h2><p className="text-xs text-muted-foreground">Connect pages into a conversion sequence.</p></div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold">{funnelName}</h2>
+              <Badge variant="secondary" className={cn('text-[10px]', funnel?.status === 'LIVE' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600')}>{funnel?.status || 'DRAFT'}</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">Connect pages into a conversion sequence.</p>
+          </div>
         </div>
-        <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-1.5" />Add Step</Button>
+        <div className="flex items-center gap-2">
+          {funnel?.status === 'LIVE' && (
+            <div className="flex items-center gap-1.5 rounded-lg border bg-muted/40 px-2.5 py-1.5">
+              <Globe className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-mono text-muted-foreground">{funnelUrl}</span>
+              <button onClick={() => { navigator.clipboard.writeText(funnelUrl); toast.success('Link copied') }} className="p-0.5 text-muted-foreground hover:text-foreground" title="Copy link"><Copy className="h-3 w-3" /></button>
+              <a href={funnelUrl} target="_blank" rel="noreferrer" className="p-0.5 text-muted-foreground hover:text-primary" title="Open funnel"><ExternalLink className="h-3 w-3" /></a>
+            </div>
+          )}
+          <Button size="sm" variant="outline" onClick={() => setDomainOpen(true)}><Server className="h-4 w-4 mr-1.5 text-primary" />Domain</Button>
+          <Button
+            size="sm"
+            variant={funnel?.status === 'LIVE' ? 'outline' : 'default'}
+            onClick={() => publishFunnel()}
+            disabled={busy === 'publish'}
+            className={funnel?.status === 'LIVE' ? 'border-amber-500/40 text-amber-600' : ''}
+          >
+            {busy === 'publish' ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : funnel?.status === 'LIVE' ? <EyeOff className="h-4 w-4 mr-1.5" /> : <Rocket className="h-4 w-4 mr-1.5" />}
+            {funnel?.status === 'LIVE' ? 'Unpublish' : 'Publish'}
+          </Button>
+          <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-1.5" />Add Step</Button>
+        </div>
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(e) => { const s = steps.find((x) => x.id === e.active.id); if (s) setActiveDrag({ id: s.id, name: s.name }) }} onDragEnd={onDragEnd} onDragCancel={() => setActiveDrag(null)}>
@@ -1276,6 +1337,14 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
       </Dialog>
 
       <StepPreviewDialog preview={previewPage} onClose={() => setPreviewPage(null)} />
+
+      <DomainManagerDialog
+        open={domainOpen}
+        onOpenChange={setDomainOpen}
+        domains={funnel?.customDomains || []}
+        onAdd={addDomain}
+        onRemove={removeDomain}
+      />
     </div>
   )
 }
@@ -1314,6 +1383,59 @@ function StepPreviewDialog({ preview, onClose }: { preview: { pageId: string; na
               {data.page.sections.map((s) => (
                 <div key={s.id} className="pointer-events-none select-none">
                   <SectionRenderer type={s.type} content={s.content} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function DomainManagerDialog({ open, onOpenChange, domains, onAdd, onRemove }: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  domains: { id: string; domain: string; status: string }[]
+  onAdd: (domain: string) => Promise<unknown>
+  onRemove: (id: string, domain: string) => Promise<void>
+}) {
+  const [domain, setDomain] = useState('')
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Server className="h-4 w-4 text-primary" />Custom domain</DialogTitle>
+          <DialogDescription>Connect your own domain to publish this funnel at your brand's address.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-1">
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-xs font-semibold mb-1.5">DNS setup</p>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">Add this record at your domain registrar, then reconnect to verify. Propagation may take a few minutes.</p>
+            <div className="mt-2 flex items-center gap-2 text-[11px] font-mono">
+              <span className="rounded bg-background border px-2 py-1">A</span>
+              <span className="rounded bg-background border px-2 py-1 flex-1 truncate">yourbrand.com → creatoros.io</span>
+              <span className="rounded bg-background border px-2 py-1">TTL 600</span>
+            </div>
+          </div>
+
+          <div>
+            <Label>Domain name</Label>
+            <Input className="mt-1.5" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="yourbrand.com" onKeyDown={(e) => { if (e.key === 'Enter') { onAdd(domain); setDomain('') } }} />
+          </div>
+          <Button size="sm" onClick={() => { onAdd(domain); setDomain('') }}><Plus className="h-3.5 w-3.5 mr-1.5" />Connect domain</Button>
+
+          {domains.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Connected domains</p>
+              {domains.map((d) => (
+                <div key={d.id} className="flex items-center justify-between rounded-lg border p-2.5">
+                  <div className="min-w-0">
+                    <p className="text-sm font-mono font-medium truncate">{d.domain}</p>
+                    <Badge variant="secondary" className={cn('mt-1 text-[10px]', d.status === 'VERIFIED' || d.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600')}>{d.status}</Badge>
+                  </div>
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-rose-500 hover:text-rose-600" onClick={() => onRemove(d.id, d.domain)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               ))}
             </div>
@@ -1487,19 +1609,66 @@ Write your post content here. Markdown is supported." />
 
 // ===== Domains panel =====
 function DomainsPanel() {
+  const { data, loading, error, refetch } = useApi<{ domains: { id: string; domain: string; status: string; funnel: { id: string; name: string; slug: string } | null; createdAt: string }[] }>('/api/data/domains')
+  const [domain, setDomain] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  if (loading) return <LoadingState size="lg" text="Loading domains..." />
+  if (error || !data) return <ErrorState description={error || 'Failed to load domains.'} action={{ label: 'Retry', onClick: refetch }} />
+
+  const connect = async () => {
+    if (!domain.trim()) { toast.error('Enter a domain name'); return }
+    setBusy(true)
+    try {
+      const res = await fetch('/api/data/domains', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain }) })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed')
+      toast.success('Domain connected', { description: 'Point your DNS A record to creatoros.io to verify.' })
+      setDomain(''); refetch()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(false) }
+  }
+
+  const disconnect = async (id: string, d: string) => {
+    if (!confirm(`Disconnect "${d}"?`)) return
+    try {
+      const res = await fetch(`/api/data/domains?id=${id}`, { method: 'DELETE' })
+      if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Failed') }
+      toast.success('Domain disconnected'); refetch()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') }
+  }
+
   return (
     <div className="space-y-4">
-      <Card className="border-emerald-500/20 bg-emerald-500/5"><CardContent className="p-4 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600"><Check className="h-5 w-5" /></div><div className="flex-1"><p className="text-sm font-medium">creatoros.io</p><p className="text-xs text-muted-foreground">Primary domain · SSL active · Auto-renewing</p></div><Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600">Connected</Badge></CardContent></Card>
+      <Card className="border-emerald-500/20 bg-emerald-500/5"><CardContent className="p-4 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600"><Check className="h-5 w-5" /></div><div className="flex-1"><p className="text-sm font-medium">creatoros.io</p><p className="text-xs text-muted-foreground">Primary domain · Built-in SSL · Shareable links</p></div><Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600">Connected</Badge></CardContent></Card>
       <Card><CardHeader><CardTitle className="text-sm flex items-center gap-2"><Server className="h-4 w-4 text-primary" />Connect a custom domain</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div><Label>Domain name</Label><Input className="mt-1.5" placeholder="yourbrand.com" /><p className="text-[10px] text-muted-foreground mt-1">We'll automatically provision SSL and configure DNS for you.</p></div>
-          <Button size="sm" onClick={() => toast.success('Domain connection started', { description: 'DNS verification may take 10-30 minutes.' })}><Server className="h-3.5 w-3.5 mr-1.5" />Connect domain</Button>
+          <div><Label>Domain name</Label><Input className="mt-1.5" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="yourbrand.com" onKeyDown={(e) => { if (e.key === 'Enter') connect() }} /><p className="text-[10px] text-muted-foreground mt-1">Add an A record pointing <span className="font-mono">yourbrand.com</span> to <span className="font-mono">creatoros.io</span>.</p></div>
+          <Button size="sm" onClick={connect} disabled={busy}>{busy ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Server className="h-3.5 w-3.5 mr-1.5" />}Connect domain</Button>
         </CardContent>
       </Card>
-      <div className="grid sm:grid-cols-2 gap-4">
-        <Card><CardHeader className="pb-3"><CardTitle className="text-sm">Redirects</CardTitle></CardHeader><CardContent className="space-y-2"><div className="flex items-center gap-2"><Input className="h-8 text-xs font-mono" defaultValue="/old-page" /><ArrowRight /><Input className="h-8 text-xs font-mono" defaultValue="/new-page" /></div><Button size="sm" variant="outline"><Plus className="h-3 w-3 mr-1" />Add redirect</Button></CardContent></Card>
-        <Card><CardHeader className="pb-3"><CardTitle className="text-sm">Subdomains</CardTitle></CardHeader><CardContent className="space-y-2"><div className="flex items-center justify-between rounded-lg border p-2"><span className="text-xs font-mono">app.creatoros.io</span><Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-600">Active</Badge></div><Button size="sm" variant="outline"><Plus className="h-3 w-3 mr-1" />Add subdomain</Button></CardContent></Card>
-      </div>
+
+      <Card><CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Globe className="h-4 w-4 text-primary" />Your domains</CardTitle></CardHeader>
+        <CardContent>
+          {data.domains.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">No custom domains connected yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {data.domains.map((d) => (
+                <div key={d.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-mono font-medium truncate">{d.domain}</p>
+                    {d.funnel && <p className="text-[10px] text-muted-foreground mt-0.5">Linked to {d.funnel.name}</p>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className={cn('text-[10px]', d.status === 'VERIFIED' || d.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600')}>{d.status}</Badge>
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-rose-500 hover:text-rose-600" onClick={() => disconnect(d.id, d.domain)}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

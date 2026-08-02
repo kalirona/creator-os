@@ -63,7 +63,7 @@ async function seed() {
   // Funnel
   const courseLanding = await db.page.findFirst({ where: { slug: 'ai-content-studio' } })
   const funnel = await db.funnel.create({
-    data: { workspaceId: workspace.id, name: 'AI Content Studio Launch Funnel', description: 'Course sales funnel with upsell and email sequence', type: 'SALES', status: 'LIVE', visits: 8420, conversions: 312, revenue: 92364 },
+    data: { workspaceId: workspace.id, slug: 'ai-content-studio-launch', name: 'AI Content Studio Launch Funnel', description: 'Course sales funnel with upsell and email sequence', type: 'SALES', status: 'LIVE', visits: 8420, conversions: 312, revenue: 92364 },
   })
   const steps = [
     { name: 'Course Landing Page', type: 'LANDING', pageId: courseLanding?.id },

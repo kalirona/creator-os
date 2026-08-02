@@ -30,6 +30,8 @@ export type AuditAction =
   | 'funnel.create'
   | 'funnel.update'
   | 'funnel.delete'
+  | 'domain.connect'
+  | 'domain.disconnect'
   | 'blog_post.create'
   | 'blog_post.update'
   | 'blog_post.delete'

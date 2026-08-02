@@ -91,6 +91,7 @@ export async function POST(req: NextRequest) {
     const funnel = await db.funnel.create({
       data: {
         workspaceId: ctx.workspace.id,
+        slug: `funnel-${Date.now().toString(36)}-${ctx.workspace.id.slice(-4)}`,
         name: (data.name || selling).slice(0, 80),
         description: (data.description || `Generated funnel for ${selling}`).slice(0, 300),
         type: 'SALES',
