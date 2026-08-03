@@ -38,9 +38,9 @@ ENV PORT=3007
 ENV HOSTNAME=0.0.0.0
 
 # Create non-root user
-RUN apk add --no-cache shadow && \
-    addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+# Create non-root user natively without system package managers
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -u 1001 -S nextjs -G nodejs
 
 # Copy standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
