@@ -36,14 +36,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { BuyCreditsDialog } from '@/components/app/buy-credits-dialog'
 import type { NavItem, ModuleId } from '@/lib/nav'
@@ -81,8 +73,6 @@ export function Sidebar() {
     togglePin,
     searchQuery,
     setSearchQuery,
-    theme,
-    toggleTheme,
   } = useAppStore()
 
   const [credits] = useState(4280)
@@ -381,7 +371,7 @@ export function Sidebar() {
         open={buyOpen}
         onOpenChange={setBuyOpen}
         currentCredits={credits}
-        onPurchase={(c) => {}}
+        onPurchase={() => {}}
       />
     </aside>
   )
@@ -450,10 +440,26 @@ function NavItem({
                   <Clock className="h-3 w-3 text-muted-foreground opacity-50" />
                 )}
                 {showPin && (
-                  <Pin className="h-3 w-3 text-muted-foreground opacity-50" />
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onPin?.() }}
+                    className="cursor-pointer"
+                    title={item.label}
+                  >
+                    <Pin className="h-3 w-3 text-muted-foreground opacity-50" />
+                  </span>
                 )}
                 {showFavorite && (
-                  <Star className="h-3 w-3 text-yellow-400 fill-current" />
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onFavorite?.() }}
+                    className="cursor-pointer"
+                    title={item.label}
+                  >
+                    <Star className="h-3 w-3 text-yellow-400 fill-current" />
+                  </span>
                 )}
               </>
             )}

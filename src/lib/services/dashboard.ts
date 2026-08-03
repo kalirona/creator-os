@@ -5,13 +5,12 @@ export class DashboardService {
   async getStats(ctx: RequestContext) {
     await requirePermission(ctx, 'order', 'read')
 
-    const [courses, products, orders, customers, posts, campaigns, affiliates, pages, plans] = await Promise.all([
+    const [courses, products, orders, customers, posts, affiliates, pages, plans] = await Promise.all([
       db.course.findMany({ where: { workspaceId: ctx.workspace.id }, orderBy: { studentsCount: 'desc' } }),
       db.product.findMany({ where: { workspaceId: ctx.workspace.id }, orderBy: { salesCount: 'desc' } }),
       db.order.findMany({ where: { workspaceId: ctx.workspace.id }, orderBy: { createdAt: 'desc' }, include: { product: true } }),
       db.customer.findMany({ where: { workspaceId: ctx.workspace.id } }),
       db.communityPost.findMany({ where: { workspaceId: ctx.workspace.id }, orderBy: { createdAt: 'desc' }, include: { user: true } }),
-      db.emailCampaign.findMany({ where: { workspaceId: ctx.workspace.id } }),
       db.affiliate.findMany({ where: { workspaceId: ctx.workspace.id } }),
       db.webPage.findMany({ where: { workspaceId: ctx.workspace.id } }),
       db.membershipPlan.findMany({ where: { workspaceId: ctx.workspace.id } }),

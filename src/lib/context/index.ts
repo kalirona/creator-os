@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { authConfig, decryptSession } from '@/lib/auth'
 import { getFeatureFlags } from '@/lib/features'
 import { getUserPermissions } from '@/lib/rbac-guards'
-import { type Role, type Resource, type Action } from '@/lib/rbac'
+import { type Resource, type Action } from '@/lib/rbac'
 
 export interface RequestContext {
   user: {
@@ -92,7 +92,6 @@ export async function createRequestContext(): Promise<RequestContext> {
 
   if (!workspace) throw new Error('No workspace found')
 
-  const role = (membership?.role || user.role) as Role
   const permissions = await getUserPermissions(user.id, workspace.id)
 
   return {

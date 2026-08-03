@@ -1,7 +1,6 @@
 'use client'
-import { Award, Plus, Download, Eye, Trash2, MoreVertical } from 'lucide-react'
+import { Award, Plus, Download, Eye } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'

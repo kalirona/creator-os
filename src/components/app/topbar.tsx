@@ -11,7 +11,6 @@ import {
   Package,
   Users,
   Mail,
-  FileText,
   Sparkles,
   ChevronDown,
   Globe,
@@ -41,7 +40,6 @@ export function Topbar() {
     setActiveModule,
     triggerCreateDialog,
     favorites,
-    toggleFavorite,
   } = useAppStore()
 
   const current = ALL_NAV_ITEMS.find((i) => i.id === activeModule)

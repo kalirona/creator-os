@@ -9,7 +9,6 @@ interface SearchToolbarProps {
   onChange?: (value: string) => void;
   onSearch?: (value: string) => void;
   className?: string;
-  showClear?: boolean;
 }
 
 export function SearchToolbar({
@@ -18,7 +17,6 @@ export function SearchToolbar({
   onChange,
   onSearch,
   className,
-  showClear = true,
 }: SearchToolbarProps) {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && onSearch && value !== undefined) {

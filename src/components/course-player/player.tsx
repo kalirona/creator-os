@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { ArrowLeft, CheckCircle2, Clock, FileText, FileQuestion, Lock, PlayCircle, Video, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useApi, formatNumber } from '@/hooks/use-api'
 import { useAppStore } from '@/store/app-store'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
@@ -47,7 +46,7 @@ export function CoursePlayer() {
   const previewCourseId = useAppStore((s) => s.previewCourseId)
   const closePreview = useAppStore((s) => s.closePreview)
   const openBuilder = useAppStore((s) => s.openBuilder)
-  const { data: courses, loading, error, refetch } = useApi<PreviewCourse[]>('/api/data/courses')
+  const { data: courses, loading, error } = useApi<PreviewCourse[]>('/api/data/courses')
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
   const [sectionCollapsed, setSectionCollapsed] = useState<Record<string, boolean>>({})
 

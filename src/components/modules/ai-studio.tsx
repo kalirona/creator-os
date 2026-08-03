@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Sparkles, Send, Zap, Copy, Check, RotateCcw, ChevronDown, Wand2, Loader2,
+  Sparkles, Zap, Copy, Check, Wand2, Loader2,
   GraduationCap, FileText, Mail, ShoppingCart, LayoutTemplate, PenLine, Share2, Youtube, Package, MessageSquare,
   Eye, Pencil, Download, Plus, Globe, DollarSign, ArrowLeft, FileCode, BookOpen, Award, Tag, Search, Rocket,
 } from 'lucide-react'
@@ -10,8 +10,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -272,7 +270,7 @@ function ToolInput({ tool, input, setInput, loading, onGenerate, onBack }: {
 }
 
 // ===== Structured Result View with workflow actions =====
-function ResultView({ result, tool, onBack, onCreditsUpdate }: {
+function ResultView({ result, tool, onBack }: {
   result: GenResult; tool: Tool; onBack: () => void; onCreditsUpdate: (c: number) => void
 }) {
   const [activeTab, setActiveTab] = useState<'preview' | 'raw'>('preview')
@@ -389,9 +387,6 @@ function download(content: string, filename: string, mime: string) {
 interface Action { label: string; icon: React.ComponentType<{ className?: string }>; onClick: () => void; variant?: 'default' | 'outline' | 'ghost'; disabled?: boolean }
 
 function getActionsForTool(slug: string, ctx: { exportFile: (f: string) => void; publishCourse: () => void; publishing: boolean; setActiveModule: (m: any) => void; onBack: () => void }): Action[] {
-  const base: Action[] = [
-    { label: 'Copy', icon: Copy, onClick: () => ctx.exportFile('json'), variant: 'ghost' },
-  ]
   if (slug === 'COURSE_GENERATOR') {
     return [
       { label: 'Export', icon: Download, onClick: () => ctx.exportFile('md'), variant: 'outline' },

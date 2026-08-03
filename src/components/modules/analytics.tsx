@@ -1,5 +1,4 @@
 'use client'
-import { motion } from 'framer-motion'
 import { DollarSign, Users, TrendingUp, Eye, Globe, Mail, Download } from 'lucide-react'
 import { useApi, formatCurrency, formatNumber } from '@/hooks/use-api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

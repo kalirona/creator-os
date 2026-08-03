@@ -6,7 +6,6 @@ import { CheckCircle, X } from "lucide-react";
 interface BulkToolbarProps {
   selectedCount: number;
   totalCount?: number;
-  onSelectAll?: () => void;
   onSelectNone?: () => void;
   actions?: React.ReactNode;
   className?: string;
@@ -15,7 +14,6 @@ interface BulkToolbarProps {
 export function BulkToolbar({
   selectedCount,
   totalCount,
-  onSelectAll,
   onSelectNone,
   actions,
   className,

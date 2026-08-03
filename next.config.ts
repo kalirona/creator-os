@@ -1,4 +1,22 @@
 import type { NextConfig } from "next";
+import { execSync } from "child_process";
+
+function bakeBuildInfo() {
+  let commit: string | null = null;
+  try {
+    commit = execSync("git rev-parse --short HEAD", { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+  } catch {
+    commit = null;
+  }
+  return {
+    APP_COMMIT: commit ?? "",
+    APP_BUILT_AT: new Date().toISOString(),
+  };
+}
+
+const buildInfo = bakeBuildInfo();
 
 const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -15,6 +33,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  env: buildInfo,
   async headers() {
     return [
       {

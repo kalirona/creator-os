@@ -19,14 +19,12 @@ interface FilterToolbarProps {
   options: FilterOption[];
   onChange: (options: FilterOption[]) => void;
   className?: string;
-  placeholder?: string;
 }
 
 export function FilterToolbar({
   options,
   onChange,
   className,
-  placeholder = "Filter",
 }: FilterToolbarProps) {
   const activeCount = options.filter((o) => o.active).length;
 

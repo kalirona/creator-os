@@ -5,27 +5,18 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TiptapLink from '@tiptap/extension-link'
 import TiptapImage from '@tiptap/extension-image'
-import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
+import { Table } from '@tiptap/extension-table'
 import TextAlign from '@tiptap/extension-text-align'
 import {
-  Bold, Italic, Strikethrough, Code, Heading1, Heading2, Heading3,
+  Bold, Italic, Strikethrough, Code,
   List, ListOrdered, Quote, Link as LinkIcon, Image as ImageIcon,
-  Table as TableIcon, Code as CodeIcon,
+  Table as TableIcon,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Undo as UndoIcon, Redo as RedoIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Separator } from '@/components/ui/separator'
-
-interface RichTextEditorProps {
-  value?: string
-  onChange?: (value: string) => void
-  placeholder?: string
-  editable?: boolean
-  className?: string
-}
 
 export function RichTextEditor({
   value = '',
@@ -46,7 +37,7 @@ export function RichTextEditor({
         codeBlock: false,
         heading: { levels: [1, 2, 3] },
       }),
-      Placeholder.configure({ placeholder: 'Start writing...' }),
+      Placeholder.configure({ placeholder }),
       TiptapLink.configure({
         openOnClick: false,
         HTMLAttributes: { class: 'text-primary underline' },
@@ -69,7 +60,7 @@ export function RichTextEditor({
   if (!editor) return null
 
   return (
-    <div className="border border-border rounded-lg bg-background">
+    <div className={cn('border border-border rounded-lg bg-background', className)}>
       <div className="flex flex-wrap gap-1 p-2 border-b border-border bg-card">
         <Button
           variant="ghost"

@@ -2,7 +2,6 @@
 import { motion } from 'framer-motion'
 import {
   TrendingUp,
-  TrendingDown,
   DollarSign,
   Users,
   GraduationCap,

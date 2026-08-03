@@ -9,7 +9,6 @@ export async function GET() {
     const ctx = await createRequestContext()
     const customers = await crmService.list(ctx)
     const orders = await import('@/lib/services/orders').then(m => m.orderService).then(s => s.list(ctx))
-    const products = await import('@/lib/services/products').then(m => m.productService).then(s => s.list(ctx))
 
     const totalRevenue = orders.orders.filter((o: { status: string; amount: number }) => o.status === 'COMPLETED').reduce((s: number, o: { amount: number }) => s + o.amount, 0)
     const avgLtv = customers.reduce((s, c) => s + c.ltv, 0) / (customers.length || 1)

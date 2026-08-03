@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Sparkles, ArrowLeft, Loader2, Check, GraduationCap, BookOpen, Video, FileQuestion,
-  FileText, Plus, Trash2, Pencil, ChevronDown, ChevronRight, DollarSign, Users, Award,
-  Rocket, Copy, Tag, Search, Clock,
+  Sparkles, ArrowLeft, Loader2, Check, BookOpen, Video, FileQuestion,
+  FileText, Pencil, ChevronDown, ChevronRight, DollarSign,
+  Rocket, Clock,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

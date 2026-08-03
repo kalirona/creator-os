@@ -8,7 +8,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { StatGrid } from '@/components/ui-enterprise/StatGrid'
-import { SectionHeader } from '@/components/ui-enterprise/SectionHeader'
 import { SearchToolbar } from '@/components/ui-enterprise/SearchToolbar'
 
 const TICKETS = [

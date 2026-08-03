@@ -3,13 +3,10 @@
 import { useState, useEffect } from 'react'
 import {
   Plus,
-  Search,
   DollarSign,
   Download,
   Package,
   Eye,
-  Save,
-  Rocket,
   Archive,
   BarChart3,
   Star,
@@ -19,16 +16,12 @@ import {
   Trash2,
   Pencil,
   ArrowLeft,
-  Upload,
   Tag,
   Globe,
-  Lock,
-  FileText,
   Image as ImageIcon,
   Clock,
 } from 'lucide-react'
 import { useApi, formatCurrency, formatNumber } from '@/hooks/use-api'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -63,12 +56,6 @@ const TYPE_META: Record<string, { icon: React.ComponentType<{ className?: string
   BUNDLE: { icon: Package, color: 'text-violet-600', gradient: 'from-violet-500/20 to-fuchsia-500/10', label: 'Bundle' },
   MEMBERSHIP: { icon: Package, color: 'text-amber-600', gradient: 'from-amber-500/20 to-orange-500/10', label: 'Membership' },
   COURSE: { icon: Package, color: 'text-emerald-600', gradient: 'from-emerald-500/20 to-teal-500/10', label: 'Course' },
-}
-
-const STATUS_META: Record<string, { label: string; cls: string }> = {
-  ACTIVE: { label: 'Active', cls: 'bg-emerald-500/10 text-emerald-600' },
-  DRAFT: { label: 'Draft', cls: 'bg-amber-500/10 text-amber-600' },
-  ARCHIVED: { label: 'Archived', cls: 'bg-muted text-muted-foreground' },
 }
 
 const FILTERS = ['All', 'DIGITAL', 'BUNDLE', 'MEMBERSHIP', 'COURSE']
@@ -217,7 +204,6 @@ export function ProductsModule() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => {
             const tm = TYPE_META[p.type] || TYPE_META.DIGITAL
-            const sm = STATUS_META[p.status] || STATUS_META.DRAFT
             const TIcon = tm.icon
             return (
               <EntityCard
@@ -567,7 +553,7 @@ function ProductEditor({ product, onBack }: { product: Product; onBack: () => vo
                       <Input
                         defaultValue={product.name}
                         placeholder="SEO title for search engines"
-                        onChange={(e) => setHasUnsavedChanges(true)}
+                        onChange={() => setHasUnsavedChanges(true)}
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -576,7 +562,7 @@ function ProductEditor({ product, onBack }: { product: Product; onBack: () => vo
                         rows={2}
                         defaultValue={product.description}
                         placeholder="Meta description for search results"
-                        onChange={(e) => setHasUnsavedChanges(true)}
+                        onChange={() => setHasUnsavedChanges(true)}
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">SEO settings are saved with the product.</p>
@@ -593,7 +579,7 @@ function ProductEditor({ product, onBack }: { product: Product; onBack: () => vo
                       <Input
                         defaultValue={product.name.toLowerCase().replace(/\s+/g, '-')}
                         placeholder="product-slug"
-                        onChange={(e) => setHasUnsavedChanges(true)}
+                        onChange={() => setHasUnsavedChanges(true)}
                       />
                       <p className="text-xs text-muted-foreground">The URL-friendly name for this product.</p>
                     </div>
@@ -601,7 +587,7 @@ function ProductEditor({ product, onBack }: { product: Product; onBack: () => vo
                       <Label className="text-sm font-medium">External reference ID</Label>
                       <Input
                         placeholder="Optional - e.g. SKU-001"
-                        onChange={(e) => setHasUnsavedChanges(true)}
+                        onChange={() => setHasUnsavedChanges(true)}
                       />
                     </div>
                   </div>
@@ -656,11 +642,17 @@ function ProductEditor({ product, onBack }: { product: Product; onBack: () => vo
           lastSaved: lastSavedAt,
           hasChanges: hasUnsavedChanges,
           onSave: () => save(true),
-          onPreview: () => toast.info('Preview coming soon'),
           onPublish: togglePublish as any,
           onUnpublish: togglePublish as any,
-          onHistory: () => toast.info('Version history coming soon'),
-          actions: [],
+          actions: [
+            {
+              label: 'Back',
+              icon: <ArrowLeft className="h-4 w-4" />,
+              onClick: onBack,
+              variant: 'ghost',
+              shortcut: 'Esc',
+            },
+          ],
         }}
         className="h-screen"
       />

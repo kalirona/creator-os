@@ -3,15 +3,13 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   ShoppingBag, Package, Users, DollarSign, TrendingUp, TrendingDown,
-  Star, Download, Eye, MoreVertical, Tag, Receipt, ShoppingCart, CreditCard,
-  AlertCircle, ArrowLeft, Loader2, Filter,
+  Star, Eye, MoreVertical, Tag, CreditCard,
+  AlertCircle, Filter,
 } from 'lucide-react'
 import { useApi, formatCurrency, formatNumber, timeAgo } from '@/hooks/use-api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -22,7 +20,6 @@ import { MetricCard } from '@/components/ui-enterprise/MetricCard'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
 import { SearchToolbar } from '@/components/ui-enterprise/SearchToolbar'
 import { StatGrid } from '@/components/ui-enterprise/StatGrid'
-import { SectionHeader } from '@/components/ui-enterprise/SectionHeader'
 
 interface Product { id: string; name: string; price: number; salesCount: number; status: string; type: string; coverUrl: string | null; revenue: number }
 interface Order { id: string; customerName: string; customerEmail: string; amount: number; status: string; productName: string; createdAt: string }
@@ -367,7 +364,6 @@ function ReportsTab() {
   const revenue = ordersData?.stats.revenue || 0
   const refunds = ordersData?.stats.refunds || 0
   const totalSales = (products || []).reduce((s, p) => s + p.salesCount, 0)
-  const totalProducts = products?.length || 0
   const totalCustomers = customersData?.stats.total || 0
 
   return (

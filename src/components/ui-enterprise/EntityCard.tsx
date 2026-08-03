@@ -23,7 +23,6 @@ const statusColors = {
 };
 
 export function EntityCard({
-  id,
   title,
   description,
   icon,
@@ -31,7 +30,6 @@ export function EntityCard({
   metadata,
   actions,
   selected,
-  onSelect,
   onClick,
   className,
 }: EntityCardProps) {

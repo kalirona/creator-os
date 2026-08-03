@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Sidebar } from '@/components/app/sidebar'
 import { Topbar } from '@/components/app/topbar'
@@ -88,11 +89,19 @@ export default function Home() {
 }
 
 function Footer() {
+  const [buildId, setBuildId] = useState('')
+  useEffect(() => {
+    fetch('/api/version', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((d) => setBuildId(d.buildId || ''))
+      .catch(() => {})
+  }, [])
   return (
     <footer className="flex h-9 shrink-0 items-center justify-between border-t border-border bg-background/60 px-4 md:px-6 text-[11px] text-muted-foreground">
       <div className="flex items-center gap-3">
         <span className="font-medium text-foreground/70">CreatorOS</span>
         <span className="hidden sm:inline">v2.4.0</span>
+        {buildId && <span className="hidden lg:inline rounded border bg-muted px-1.5 py-0.5 font-mono text-[9px]">build:{buildId}</span>}
         <span className="hidden md:inline-flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
           All systems operational

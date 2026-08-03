@@ -25,7 +25,7 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   try {
-    const ctx = await createRequestContext()
+    await createRequestContext() // auth gate
     const body = await req.json()
     const { id, value } = body
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })

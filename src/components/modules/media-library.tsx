@@ -1,16 +1,10 @@
 'use client'
-import { FolderOpen, Plus, Image as ImageIcon, Video, FileText, Download, MoreVertical, Trash2, Copy } from 'lucide-react'
+import { FolderOpen, Plus, Image as ImageIcon, Video, FileText, Download } from 'lucide-react'
 import { StatGrid } from '@/components/ui-enterprise/StatGrid'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { useApi } from '@/hooks/use-api'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-
-interface FileAsset {
-  id: string; name: string; type: string; size: string; url: string; createdAt: string
-}
 
 export function MediaLibraryModule() {
   return (

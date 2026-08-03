@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { User, Building2, CreditCard, Users, Shield, Bell, Globe, Key, Crown, Check, Zap } from 'lucide-react'
+import { User, Building2, CreditCard, Users, Shield, Bell, Globe, Key, Crown, Zap } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
