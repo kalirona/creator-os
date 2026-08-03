@@ -19,6 +19,22 @@ interface RenderProps {
   onClick?: () => void
 }
 
+function AddItemButton({ path, template, onAddItem, className }: { path: string; template?: Record<string, unknown>; onAddItem?: (path: string, template: Record<string, unknown>) => void; className?: string }) {
+  if (!onAddItem) return null
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onAddItem(path, template || {}) }}
+      className={cn(
+        'flex items-center gap-1 rounded-lg border border-dashed border-primary/40 px-3 py-1.5 text-[10px] font-medium text-primary/80 transition hover:bg-primary/10 hover:text-primary',
+        className,
+      )}
+    >
+      + Add item
+    </button>
+  )
+}
+
 function EditableText({
   value,
   editing,
@@ -80,13 +96,14 @@ function editableField(path: string, content: Record<string, unknown>, editing?:
   }
 }
 
-export function SectionRenderer({ type, content, selected, onClick, editing, onFieldChange }: {
+export function SectionRenderer({ type, content, selected, onClick, editing, onFieldChange, onAddItem }: {
   type: string
   content: Record<string, unknown>
   selected?: boolean
   onClick?: () => void
   editing?: boolean
   onFieldChange?: (path: string, value: string) => void
+  onAddItem?: (path: string, template: Record<string, unknown>) => void
 }) {
   const wrapperClass = cn(
     'group/section relative w-full transition-shadow',
@@ -106,17 +123,17 @@ export function SectionRenderer({ type, content, selected, onClick, editing, onF
       case 'HERO': return <HeroSection content={content} editing={editing} onFieldChange={onFieldChange} />
       case 'HEADING': return <HeadingSection content={content} editing={editing} onFieldChange={onFieldChange} />
       case 'TEXT': return <TextSection content={content} editing={editing} onFieldChange={onFieldChange} />
-      case 'FEATURES': return <FeaturesSection content={content} editing={editing} onFieldChange={onFieldChange} />
-      case 'BENEFITS': return <BenefitsSection content={content} editing={editing} onFieldChange={onFieldChange} />
-      case 'PRICING': return <PricingSection content={content} editing={editing} onFieldChange={onFieldChange} />
-      case 'TESTIMONIALS': return <TestimonialsSection content={content} editing={editing} onFieldChange={onFieldChange} />
-      case 'FAQ': return <FaqSection content={content} editing={editing} onFieldChange={onFieldChange} />
+      case 'FEATURES': return <FeaturesSection content={content} editing={editing} onFieldChange={onFieldChange} onAddItem={onAddItem} />
+      case 'BENEFITS': return <BenefitsSection content={content} editing={editing} onFieldChange={onFieldChange} onAddItem={onAddItem} />
+      case 'PRICING': return <PricingSection content={content} editing={editing} onFieldChange={onFieldChange} onAddItem={onAddItem} />
+      case 'TESTIMONIALS': return <TestimonialsSection content={content} editing={editing} onFieldChange={onFieldChange} onAddItem={onAddItem} />
+      case 'FAQ': return <FaqSection content={content} editing={editing} onFieldChange={onFieldChange} onAddItem={onAddItem} />
       case 'VIDEO': return <VideoSection content={content} editing={editing} onFieldChange={onFieldChange} />
       case 'GALLERY': return <GallerySection content={content} editing={editing} onFieldChange={onFieldChange} />
       case 'COUNTDOWN': return <CountdownSection content={content} editing={editing} onFieldChange={onFieldChange} />
       case 'CTA': return <CtaSection content={content} editing={editing} onFieldChange={onFieldChange} />
       case 'NEWSLETTER': return <NewsletterSection content={content} editing={editing} onFieldChange={onFieldChange} />
-      case 'FOOTER': return <FooterSection content={content} editing={editing} onFieldChange={onFieldChange} />
+      case 'FOOTER': return <FooterSection content={content} editing={editing} onFieldChange={onFieldChange} onAddItem={onAddItem} />
       default: return <TextSection content={content} editing={editing} onFieldChange={onFieldChange} />
     }
   }
@@ -191,7 +208,7 @@ function TextSection({ content, editing, onFieldChange }: RenderProps & { editin
 }
 
 // ---------- FEATURES ----------
-function FeaturesSection({ content, editing, onFieldChange }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void }) {
+function FeaturesSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: Record<string, unknown>) => void }) {
   const c = content as { heading?: string; subheading?: string; items?: { icon?: string; title?: string; description?: string }[] }
   const items = c.items || []
   return (
@@ -216,13 +233,21 @@ function FeaturesSection({ content, editing, onFieldChange }: RenderProps & { ed
             </div>
           ))}
         </div>
+        {editing && (
+          <AddItemButton
+            path="items"
+            template={{ icon: '✨', title: 'New feature', description: 'Describe this feature.' }}
+            onAddItem={onAddItem}
+            className="mx-auto mt-6 w-fit"
+          />
+        )}
       </div>
     </section>
   )
 }
 
 // ---------- BENEFITS ----------
-function BenefitsSection({ content, editing, onFieldChange }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void }) {
+function BenefitsSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: Record<string, unknown>) => void }) {
   const c = content as { heading?: string; items?: { title?: string; description?: string }[] }
   const items = c.items || []
   return (
@@ -244,13 +269,21 @@ function BenefitsSection({ content, editing, onFieldChange }: RenderProps & { ed
             </div>
           ))}
         </div>
+        {editing && (
+          <AddItemButton
+            path="items"
+            template={{ title: 'New benefit', description: 'Describe this benefit.' }}
+            onAddItem={onAddItem}
+            className="mx-auto mt-6 w-fit"
+          />
+        )}
       </div>
     </section>
   )
 }
 
 // ---------- PRICING ----------
-function PricingSection({ content, editing, onFieldChange }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void }) {
+function PricingSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: Record<string, unknown>) => void }) {
   const c = content as { heading?: string; plans?: { name?: string; price?: number; interval?: string; features?: string[]; cta?: string; highlighted?: boolean }[] }
   const plans = c.plans || []
   return (
@@ -286,13 +319,21 @@ function PricingSection({ content, editing, onFieldChange }: RenderProps & { edi
             </div>
           ))}
         </div>
+        {editing && (
+          <AddItemButton
+            path="plans"
+            template={{ name: 'Pro', price: 29, interval: '/mo', features: ['Feature'], cta: 'Choose plan', highlighted: false }}
+            onAddItem={onAddItem}
+            className="mx-auto mt-6 w-fit"
+          />
+        )}
       </div>
     </section>
   )
 }
 
 // ---------- TESTIMONIALS ----------
-function TestimonialsSection({ content, editing, onFieldChange }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void }) {
+function TestimonialsSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: Record<string, unknown>) => void }) {
   const c = content as { heading?: string; items?: { name?: string; role?: string; quote?: string }[] }
   const items = c.items || []
   return (
@@ -313,13 +354,21 @@ function TestimonialsSection({ content, editing, onFieldChange }: RenderProps & 
             </div>
           ))}
         </div>
+        {editing && (
+          <AddItemButton
+            path="items"
+            template={{ name: 'Name', role: 'Role', quote: 'Great experience!' }}
+            onAddItem={onAddItem}
+            className="mx-auto mt-6 w-fit"
+          />
+        )}
       </div>
     </section>
   )
 }
 
 // ---------- FAQ ----------
-function FaqSection({ content, editing, onFieldChange }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void }) {
+function FaqSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: Record<string, unknown>) => void }) {
   const c = content as { heading?: string; items?: { question?: string; answer?: string }[] }
   const items = c.items || []
   return (
@@ -338,6 +387,14 @@ function FaqSection({ content, editing, onFieldChange }: RenderProps & { editing
             </div>
           ))}
         </div>
+        {editing && (
+          <AddItemButton
+            path="items"
+            template={{ question: 'New question?', answer: 'Answer.' }}
+            onAddItem={onAddItem}
+            className="mx-auto mt-6 w-fit"
+          />
+        )}
       </div>
     </section>
   )
@@ -462,7 +519,7 @@ function NewsletterSection({ content, editing, onFieldChange }: RenderProps & { 
 }
 
 // ---------- FOOTER ----------
-function FooterSection({ content, editing, onFieldChange }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void }) {
+function FooterSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: Record<string, unknown>) => void }) {
   const c = content as { brand?: string; tagline?: string; links?: { label?: string; url?: string }[] }
   const links = c.links || []
   return (
@@ -483,6 +540,14 @@ function FooterSection({ content, editing, onFieldChange }: RenderProps & { edit
         )}
         <p className="text-[10px] text-muted-foreground">© {new Date().getFullYear()} {c.brand || 'CreatorOS'}</p>
       </div>
+      {editing && (
+        <AddItemButton
+          path="links"
+          template={{ label: 'Link', url: '#' }}
+          onAddItem={onAddItem}
+          className="mx-auto mt-6 w-fit"
+        />
+      )}
     </footer>
   )
 }

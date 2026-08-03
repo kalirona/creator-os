@@ -1,5 +1,5 @@
 ﻿'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Globe, FileText, Rocket, Menu, BookOpen, Server, Search as SearchIcon, Settings2,
@@ -7,6 +7,7 @@ import {
   Loader2, ArrowLeft, Save, Check, Zap, ExternalLink, Megaphone, ShoppingCart,
   Mail, Layout, ChevronRight,
   TrendingUp, Users, DollarSign, Send, GripVertical, Wand2,
+  Monitor, Tablet, Smartphone, Download, Upload,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -73,7 +74,7 @@ export function PagesFunnelsModule() {
 
         <TabsContent value="pages"><PagesList type="PAGE" onEdit={(p) => setEditingPage(p)} /></TabsContent>
         <TabsContent value="landing"><PagesList type="LANDING" onEdit={(p) => setEditingPage(p)} onGenerate={() => setGenerating(true)} /></TabsContent>
-        <TabsContent value="funnels"><FunnelsPanel /></TabsContent>
+        <TabsContent value="funnels"><FunnelsPanel onOpenPage={(p) => setEditingPage(p)} /></TabsContent>
         <TabsContent value="navigation"><NavigationPanel /></TabsContent>
         <TabsContent value="blog"><BlogPanel /></TabsContent>
         <TabsContent value="domains"><DomainsPanel /></TabsContent>
@@ -325,7 +326,7 @@ function FunnelGenerator({ onDone, onCancel }: { onDone: (f: { id: string; name:
 // ===== Section-based Page Editor (no canvas, no drag-drop) =====
 interface FullPage { id: string; title: string; slug: string; type: string; status: string; category: string; seoTitle: string; seoDescription: string; visits: number; conversions: number; sections: Section[] }
 
-function PageEditor({ page }: { page: { id: string; title: string; slug: string } }) {
+function PageEditor({ page, onBack }: { page: { id: string; title: string; slug: string }; onBack?: () => void }) {
   const { data, loading, error, refetch } = useApi<{ page: FullPage }>(`/api/data/page-sections?pageId=${page.id}`)
   const [selectedSection, setSelectedSection] = useState<Section | null>(null)
   const [hoveredSection, setHoveredSection] = useState<string | null>(null)
@@ -367,6 +368,16 @@ function PageEditor({ page }: { page: { id: string; title: string; slug: string 
     setSelectedSection(updated)
     updateSection(s.id, content)
   }
+  const addSectionItem = (s: Section, path: string, template: Record<string, unknown>) => {
+    const content = JSON.parse(JSON.stringify(s.content || {}))
+    const arr = (content as Record<string, unknown>)[path]
+    if (Array.isArray(arr)) arr.push(template)
+    else (content as Record<string, unknown>)[path] = [template]
+    const updated = { ...s, content }
+    setSelectedSection(updated)
+    updateSection(s.id, content)
+    toast.success('Item added — click the text to edit it')
+  }
   const aiAction = async (s: Section, action: string) => { setBusy(s.id + action); try { const d = await callApi('/api/ai/section-rewrite', 'POST', { action, content: s.content, sectionType: s.type }); await updateSection(s.id, d.content); toast.success(`AI ${action.toLowerCase()} done! -${d.creditsUsed} credits`); refetch() } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) } }
 
   const reorderSections = async (ids: string[]) => {
@@ -392,6 +403,41 @@ function PageEditor({ page }: { page: { id: string; title: string; slug: string 
 
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
+  const [device, setDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const exportTemplate = () => {
+    if (!pageData) return
+    const template = {
+      name: `${pageData.title} template`,
+      version: 1,
+      sections: pageData.sections.map((s) => ({ type: s.type, content: s.content })),
+    }
+    const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${pageData.slug || 'page'}-template.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('Template exported')
+  }
+
+  const importTemplate = async (file: File) => {
+    try {
+      const template = JSON.parse(await file.text())
+      if (!template || !Array.isArray(template.sections)) throw new Error('Invalid template: expected a "sections" array')
+      setSaving(true)
+      let count = 0
+      for (const sec of template.sections) {
+        if (!sec || typeof sec.type !== 'string') continue
+        await callApi('/api/data/page-sections', 'POST', { pageId: page.id, type: sec.type, content: sec.content || undefined })
+        count++
+      }
+      toast.success(`Imported ${count} section(s)`)
+      refetch()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Import failed') } finally { setSaving(false) }
+  }
 
   const [activeDrag, setActiveDrag] = useState<Section | null>(null)
   const sensors = useSensors(
@@ -608,25 +654,59 @@ function PageEditor({ page }: { page: { id: string; title: string; slug: string 
         }}
         centerCanvas={
           <div className="flex-1 overflow-y-auto scroll-thin min-w-0">
-            <div className="p-6 max-w-4xl mx-auto">
+            <div className="p-6 mx-auto transition-all" style={{ maxWidth: device === 'mobile' ? 390 : device === 'tablet' ? 768 : undefined }}>
               <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold">{pageData.title}</h2>
-                  <p className="text-xs text-muted-foreground">
-                    creatoros.io/{pageData.slug}
-                  </p>
-                </div>
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    'text-xs',
-                    pageData.status === 'PUBLISHED'
-                      ? 'bg-emerald-500/10 text-emerald-600'
-                      : 'bg-amber-500/10 text-amber-600',
+                <div className="flex items-center gap-3">
+                  {onBack && (
+                    <Button size="sm" variant="ghost" onClick={onBack} className="gap-1.5 -ml-2">
+                      <ArrowLeft className="h-4 w-4" />Back
+                    </Button>
                   )}
-                >
-                  {pageData.status}
-                </Badge>
+                  <div>
+                    <h2 className="text-xl font-bold">{pageData.title}</h2>
+                    <p className="text-xs text-muted-foreground">
+                      creatoros.io/{pageData.slug}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-0.5 rounded-lg bg-muted p-0.5">
+                    {([
+                      { key: 'desktop' as const, icon: Monitor, title: 'Desktop' },
+                      { key: 'tablet' as const, icon: Tablet, title: 'Tablet' },
+                      { key: 'mobile' as const, icon: Smartphone, title: 'Mobile' },
+                    ]).map((d) => {
+                      const Icon = d.icon
+                      return (
+                        <button
+                          key={d.key}
+                          onClick={() => setDevice(d.key)}
+                          title={`Preview at ${d.title} size`}
+                          className={cn(
+                            'flex h-7 w-8 items-center justify-center rounded-md text-muted-foreground transition',
+                            device === d.key ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground',
+                          )}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Export template" onClick={exportTemplate}><Download className="h-3.5 w-3.5" /></Button>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Import template" onClick={() => fileRef.current?.click()}><Upload className="h-3.5 w-3.5" /></Button>
+                  <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importTemplate(f); e.target.value = '' }} />
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      'text-xs',
+                      pageData.status === 'PUBLISHED'
+                        ? 'bg-emerald-500/10 text-emerald-600'
+                        : 'bg-amber-500/10 text-amber-600',
+                    )}
+                  >
+                    {pageData.status}
+                  </Badge>
+                </div>
               </div>
               <div className="space-y-3">
                 {pageData.sections.length === 0 ? (
@@ -716,6 +796,7 @@ function PageEditor({ page }: { page: { id: string; title: string; slug: string 
                             selected={isSelected}
                             editing={isSelected}
                             onFieldChange={(path, value) => setSectionField(s, path, value)}
+                            onAddItem={(path, template) => addSectionItem(s, path, template)}
                           />
                         </div>
                       </div>
@@ -850,7 +931,7 @@ function getSectionPreview(s: Section): string {
 }
 
 // ===== Funnels panel =====
-function FunnelsPanel() {
+function FunnelsPanel({ onOpenPage }: { onOpenPage?: (p: { id: string; title: string; slug: string }) => void }) {
   const { data, loading, error, refetch } = useApi<{ funnels: { id: string; name: string; description: string; type: string; status: string; visits: number; conversions: number; revenue: number; steps: { id: string; name: string; type: string; position: number; isRequired: boolean; page: { id: string; title: string; slug: string } | null }[] }[]; stats: { total: number; live: number; totalVisits: number; totalRevenue: number } }>('/api/data/funnels')
   const [createOpen, setCreateOpen] = useState(false)
   const [generatingFunnel, setGeneratingFunnel] = useState(false)
@@ -868,7 +949,7 @@ function FunnelsPanel() {
   }
 
   if (editing) {
-    return <FunnelEditor funnelId={editing.id} funnelName={editing.name} onBack={() => setEditing(null)} onChanged={refetch} />
+    return <FunnelEditor funnelId={editing.id} funnelName={editing.name} onBack={() => setEditing(null)} onChanged={refetch} onOpenPage={onOpenPage} />
   }
   const STEP_ICONS: Record<string, React.ComponentType<{ className?: string }>> = { LANDING: Rocket, CHECKOUT: ShoppingCart, UPSELL: TrendingUp, DOWNSELL: TrendingUp, THANK_YOU: Check, EMAIL: Mail, COMMUNITY_INVITE: Users, COURSE_ACCESS: FileText }
 
@@ -989,7 +1070,7 @@ const FUNNEL_STEP_TYPES: { type: string; label: string; desc: string; icon: Reac
   { type: 'COURSE_ACCESS', label: 'Course Access', desc: 'Grant course access', icon: FileText },
 ]
 
-function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: string; funnelName: string; onBack: () => void; onChanged: () => void }) {
+function FunnelEditor({ funnelId, funnelName, onBack, onChanged, onOpenPage }: { funnelId: string; funnelName: string; onBack: () => void; onChanged: () => void; onOpenPage?: (p: { id: string; title: string; slug: string }) => void }) {
   const funnelInfo = useApi<{ funnel: { id: string; name: string; slug: string; description: string; type: string; status: string; visits: number; conversions: number; revenue: number; steps: { id: string; name: string; type: string; position: number; isRequired: boolean; pageId: string | null; page: { id: string; title: string; slug: string } | null }[]; customDomains: { id: string; domain: string; status: string }[] } }>(`/api/data/funnels?id=${funnelId}`, [funnelId])
   const { data, loading, error, refetch } = useApi<{ steps: { id: string; name: string; type: string; position: number; isRequired: boolean; pageId: string | null; page: { id: string; title: string; slug: string } | null }[] }>(`/api/data/funnel-steps?funnelId=${funnelId}`, [funnelId])
   const pageOptions = useApi<{ pages: { id: string; title: string; slug: string }[] }>('/api/data/pages')
@@ -1000,6 +1081,9 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
   const [previewPage, setPreviewPage] = useState<{ pageId: string; name: string } | null>(null)
   const [activeDrag, setActiveDrag] = useState<{ id: string; name: string } | null>(null)
   const [domainOpen, setDomainOpen] = useState(false)
+  const [pageDialog, setPageDialog] = useState<{ stepId: string; name: string } | null>(null)
+  const [newPageTitle, setNewPageTitle] = useState('')
+  const [creatingPage, setCreatingPage] = useState(false)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const callApi = async (url: string, method: string, body?: unknown) => {
@@ -1082,6 +1166,25 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); return null } finally { setBusy(null) }
   }
 
+  const createPageForStep = async () => {
+    if (!pageDialog) return
+    const title = newPageTitle.trim() || pageDialog.name
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'page'
+    setCreatingPage(true)
+    try {
+      const res = await callApi('/api/data/pages', 'POST', { title, slug, type: 'PAGE', category: 'General' })
+      const page = res.page
+      await callApi('/api/data/funnel-steps', 'PUT', { id: pageDialog.stepId, pageId: page.id })
+      toast.success('Page created and linked to step')
+      setPageDialog(null)
+      setNewPageTitle('')
+      refetch()
+      pageOptions.refetch()
+      onChanged()
+      if (onOpenPage) onOpenPage({ id: page.id, title: page.title, slug: page.slug })
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setCreatingPage(false) }
+  }
+
   const removeDomain = async (id: string, domain: string) => {
     if (!confirm(`Disconnect "${domain}"?`)) return
     setBusy('domain')
@@ -1156,6 +1259,7 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
             <div className="space-y-2">
               {steps.map((s, i) => {
                 const Icon = STEP_ICON[s.type] || FileText
+                const linkedPage = s.page
                 return (
                   <SortableStep key={s.id} id={s.id}>
                     {({ setNodeRef, style, attributes, listeners, isDragging }) => (
@@ -1179,12 +1283,28 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
                                   </SelectContent>
                                 </Select>
                                 <button
+                                  onClick={() => setPageDialog({ stepId: s.id, name: s.name })}
+                                  className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                  title="Create a new page for this step"
+                                >
+                                  <Plus className="h-2.5 w-2.5" />New page
+                                </button>
+                                <button
                                   onClick={() => s.page ? setPreviewPage({ pageId: s.page.id, name: s.name }) : toast.info('Link a page to preview this step')}
                                   className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
                                   title="Preview this step"
                                 >
                                   <Eye className="h-2.5 w-2.5" />Preview
                                 </button>
+                                {linkedPage && onOpenPage && (
+                                  <button
+                                    onClick={() => onOpenPage({ id: linkedPage.id, title: linkedPage.title, slug: linkedPage.slug })}
+                                    className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                    title="Open this step's page in the page editor"
+                                  >
+                                    <Pencil className="h-2.5 w-2.5" />Edit
+                                  </button>
+                                )}
                                 <button onClick={() => toggleRequired(s)} className={cn('flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition', s.isRequired ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')} title={s.isRequired ? 'Required step' : 'Optional step'}>{s.isRequired ? <Check className="h-2.5 w-2.5" /> : <Zap className="h-2.5 w-2.5" />}{s.isRequired ? 'Required' : 'Optional'}</button>
                               </div>
                             </div>
@@ -1233,6 +1353,23 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged }: { funnelId: s
 
       <StepPreviewDialog preview={previewPage} onClose={() => setPreviewPage(null)} />
 
+      <Dialog open={!!pageDialog} onOpenChange={(open) => { if (!open) setPageDialog(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Create page for step</DialogTitle><DialogDescription>{pageDialog ? `A landing page for "${pageDialog.name}" will be created and linked to this step.` : ''}</DialogDescription></DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label>Page title</Label>
+              <Input placeholder={pageDialog?.name || 'Page title'} value={newPageTitle} onChange={(e) => setNewPageTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') createPageForStep() }} />
+              <p className="text-xs text-muted-foreground mt-1.5">Leave blank to use the step name. Opens in the page editor after creation.</p>
+            </div>
+            <Button onClick={createPageForStep} disabled={creatingPage} className="w-full">
+              {creatingPage ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Plus className="h-4 w-4 mr-1.5" />}
+              {creatingPage ? 'Creating...' : 'Create & open editor'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <DomainManagerDialog
         open={domainOpen}
         onOpenChange={setDomainOpen}
@@ -1251,6 +1388,7 @@ function SortableStep({ id, children }: { id: string; children: (p: { setNodeRef
 
 function StepPreviewDialog({ preview, onClose }: { preview: { pageId: string; name: string } | null; onClose: () => void }) {
   const { data, loading } = useApi<{ page: FullPage }>(preview ? `/api/data/page-sections?pageId=${preview.pageId}` : null, [preview?.pageId])
+  const [device, setDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
 
   return (
     <Dialog open={!!preview} onOpenChange={(open) => !open && onClose()}>
@@ -1261,8 +1399,30 @@ function StepPreviewDialog({ preview, onClose }: { preview: { pageId: string; na
             {preview?.name}
           </DialogTitle>
           <DialogDescription>
-            {data?.page?.title || preview?.name} â€” how this step looks to visitors.
+            {data?.page?.title || preview?.name} — how this step looks to visitors.
           </DialogDescription>
+          <div className="flex gap-0.5 rounded-lg bg-muted p-0.5 mt-2 w-fit">
+            {([
+              { key: 'desktop' as const, icon: Monitor, title: 'Desktop' },
+              { key: 'tablet' as const, icon: Tablet, title: 'Tablet' },
+              { key: 'mobile' as const, icon: Smartphone, title: 'Mobile' },
+            ]).map((d) => {
+              const Icon = d.icon
+              return (
+                <button
+                  key={d.key}
+                  onClick={() => setDevice(d.key)}
+                  title={`Preview at ${d.title} size`}
+                  className={cn(
+                    'flex h-7 w-8 items-center justify-center rounded-md text-muted-foreground transition',
+                    device === d.key ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground',
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </button>
+              )
+            })}
+          </div>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto scroll-thin bg-grid">
           {loading ? (
@@ -1274,7 +1434,7 @@ function StepPreviewDialog({ preview, onClose }: { preview: { pageId: string; na
               <p className="text-xs text-muted-foreground mt-1">Open the page editor to add sections.</p>
             </div>
           ) : (
-            <div className="max-w-4xl mx-auto">
+            <div className="mx-auto" style={{ maxWidth: device === 'mobile' ? 390 : device === 'tablet' ? 768 : undefined }}>
               {data.page.sections.map((s) => (
                 <div key={s.id} className="pointer-events-none select-none">
                   <SectionRenderer type={s.type} content={s.content} />

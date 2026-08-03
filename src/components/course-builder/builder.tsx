@@ -302,6 +302,19 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
     }
   }
 
+  const reorderLesson = (sectionId: string, sourceId: string, targetId: string) => {
+    const newSections = sections.map((s) => {
+      if (s.id !== sectionId) return s
+      const oldIdx = s.lessons.findIndex((l) => l.id === sourceId)
+      const newIdx = s.lessons.findIndex((l) => l.id === targetId)
+      if (oldIdx < 0 || newIdx < 0) return s
+      const lessons = arrayMove(s.lessons, oldIdx, newIdx)
+      return { ...s, lessons }
+    })
+    setSections(newSections)
+    pushHistory({ title, description, sections: newSections })
+  }
+
   const moveLesson = (id: string, dir: -1 | 1) => {
     for (let sIdx = 0; sIdx < sections.length; sIdx++) {
       const section = sections[sIdx]
@@ -399,6 +412,7 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
                     onDuplicateLesson={duplicateLesson}
                     onMoveLesson={moveLesson}
                     onReorderSections={reorderSections}
+                    onReorderLesson={reorderLesson}
                   />
                 )}
               </div>
@@ -555,7 +569,7 @@ leftCollapsed={!leftOpen}
 function OutlineSections({
   sections, activeLessonId, onSelectLesson, onAddLesson,
   onRenameSection, onDeleteSection, onDuplicateSection,
-  onRenameLesson, onDeleteLesson, onDuplicateLesson, onMoveLesson, onReorderSections,
+  onRenameLesson, onDeleteLesson, onDuplicateLesson, onMoveLesson, onReorderSections, onReorderLesson,
 }: {
   sections: Section[]
   activeLessonId: string | null
@@ -569,6 +583,7 @@ function OutlineSections({
   onDuplicateLesson: (id: string) => void
   onMoveLesson: (id: string, dir: -1 | 1) => void
   onReorderSections: (sourceId: string, targetId: string) => void
+  onReorderLesson: (sectionId: string, sourceId: string, targetId: string) => void
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -612,6 +627,7 @@ function OutlineSections({
               onDeleteLesson={onDeleteLesson}
               onDuplicateLesson={onDuplicateLesson}
               onMoveLesson={onMoveLesson}
+              onReorderLesson={onReorderLesson}
             />
           ))}
         </div>
@@ -629,7 +645,7 @@ function OutlineSections({
 
 function SortableSection({
   section, index, collapsed, onToggle, activeLessonId, onSelectLesson, onAddLesson,
-  onRename, onDelete, onDuplicate, onRenameLesson, onDeleteLesson, onDuplicateLesson, onMoveLesson,
+  onRename, onDelete, onDuplicate, onRenameLesson, onDeleteLesson, onDuplicateLesson, onMoveLesson, onReorderLesson,
 }: {
   section: Section; index: number
   collapsed: boolean; onToggle: () => void
@@ -642,11 +658,29 @@ function SortableSection({
   onDeleteLesson: (id: string) => void
   onDuplicateLesson: (id: string) => void
   onMoveLesson: (id: string, dir: -1 | 1) => void
+  onReorderLesson: (sectionId: string, sourceId: string, targetId: string) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(section.title)
+
+  const lessonSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null)
+
+  const handleLessonDragStart = (e: DragStartEvent) => {
+    const l = section.lessons.find((x) => x.id === String(e.active.id))
+    if (l) setActiveLesson(l)
+  }
+  const handleLessonDragEnd = (e: DragEndEvent) => {
+    setActiveLesson(null)
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    onReorderLesson(section.id, String(active.id), String(over.id))
+  }
 
   return (
     <div
@@ -712,21 +746,33 @@ function SortableSection({
               {section.lessons.length === 0 && (
                 <p className="py-1.5 px-2 text-xs text-muted-foreground italic">No lessons yet</p>
               )}
-              {section.lessons.map((lesson, lIdx) => (
-                <LessonRow
-                  key={lesson.id}
-                  lesson={lesson}
-                  active={lesson.id === activeLessonId}
-                  onSelect={() => onSelectLesson(lesson.id)}
-                  onRename={(t) => onRenameLesson(lesson.id, t)}
-                  onDelete={() => onDeleteLesson(lesson.id)}
-                  onDuplicate={() => onDuplicateLesson(lesson.id)}
-                  onMoveUp={() => onMoveLesson(lesson.id, -1)}
-                  onMoveDown={() => onMoveLesson(lesson.id, 1)}
-                  canMoveUp={lIdx > 0}
-                  canMoveDown={lIdx < section.lessons.length - 1}
-                />
-              ))}
+              <DndContext sensors={lessonSensors} collisionDetection={closestCenter} onDragStart={handleLessonDragStart} onDragEnd={handleLessonDragEnd} onDragCancel={() => setActiveLesson(null)}>
+                <SortableContext items={section.lessons.map((l) => l.id)} strategy={verticalListSortingStrategy}>
+                  {section.lessons.map((lesson, lIdx) => (
+                    <LessonRow
+                      key={lesson.id}
+                      lesson={lesson}
+                      active={lesson.id === activeLessonId}
+                      onSelect={() => onSelectLesson(lesson.id)}
+                      onRename={(t) => onRenameLesson(lesson.id, t)}
+                      onDelete={() => onDeleteLesson(lesson.id)}
+                      onDuplicate={() => onDuplicateLesson(lesson.id)}
+                      onMoveUp={() => onMoveLesson(lesson.id, -1)}
+                      onMoveDown={() => onMoveLesson(lesson.id, 1)}
+                      canMoveUp={lIdx > 0}
+                      canMoveDown={lIdx < section.lessons.length - 1}
+                    />
+                  ))}
+                </SortableContext>
+                <DragOverlay>
+                  {activeLesson ? (
+                    <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 shadow-lg text-sm font-medium opacity-90">
+                      {(() => { const Icon = LESSON_TYPE_ICONS[activeLesson.type] || FileEdit; return <Icon className="h-4 w-4 text-muted-foreground" /> })()}
+                      <span className="truncate">{activeLesson.title}</span>
+                    </div>
+                  ) : null}
+                </DragOverlay>
+              </DndContext>
               <button
                 onClick={onAddLesson}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition border border-dashed border-transparent hover:border-border"
@@ -754,17 +800,30 @@ function LessonRow({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(lesson.title)
   const Icon = LESSON_TYPE_ICONS[lesson.type] || FileEdit
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lesson.id })
+  const style = { transform: CSS.Transform.toString(transform), transition }
 
   return (
     <div
+      ref={setNodeRef}
+      style={style}
       className={cn(
-        'group flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition cursor-pointer',
+        'group flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm transition cursor-pointer',
         active ? 'bg-primary/10 text-primary ring-1 ring-primary/30 font-medium' : 'hover:bg-muted/60 text-foreground/80',
+        isDragging && 'opacity-50 shadow-lg ring-2 ring-primary/30',
       )}
       onClick={onSelect}
       onDoubleClick={(e) => { e.stopPropagation(); setEditing(true) }}
       title="Double-click to rename"
     >
+      <button
+        {...attributes} {...listeners}
+        onClick={(e) => e.stopPropagation()}
+        className="cursor-grab active:cursor-grabbing p-0.5 -ml-0.5 text-muted-foreground/40 hover:text-muted-foreground transition touch-none rounded"
+        aria-label="Drag lesson"
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
       <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-primary' : 'text-muted-foreground')} />
       {editing ? (
         <Input
