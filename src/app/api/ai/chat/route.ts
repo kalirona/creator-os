@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import ZAI from 'z-ai-web-dev-sdk'
+import { callAi } from '@/lib/ai/client'
 import { createRequestContext } from '@/lib/context'
 import { db } from '@/lib/db'
 
@@ -45,16 +45,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const zai = await ZAI.create()
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'assistant', content: systemPrompt },
+    const completion = await callAi(
+      [
+        { role: 'system', content: systemPrompt },
         ...messages.map((m) => ({ role: m.role, content: m.content })),
       ],
-      thinking: { type: 'disabled' },
-    })
+      { temperature: 0.7, maxTokens: 4000 }
+    )
 
-    const content = completion.choices[0]?.message?.content || ''
+    const content = completion
 
     try {
       await db.user.update({ where: { id: ctx.user.id }, data: { credits: { decrement: cost } } })
@@ -65,7 +64,7 @@ export async function POST(req: NextRequest) {
       // ignore
     }
 
-    return NextResponse.json({ content, creditsUsed: cost, model: 'zai-glm' })
+    return NextResponse.json({ content, creditsUsed: cost, model: 'configured' })
   } catch (e) {
     if (e instanceof Error && e.message === 'Authentication required') {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })

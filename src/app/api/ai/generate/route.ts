@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import ZAI from 'z-ai-web-dev-sdk'
+import { callAi } from '@/lib/ai/client'
 import { createRequestContext } from '@/lib/context'
 import { db } from '@/lib/db'
 
@@ -43,13 +43,11 @@ export async function POST(req: NextRequest) {
     }
 
     const messages = [
-      { role: 'assistant' as const, content: tool.systemPrompt },
+      { role: 'system' as const, content: tool.systemPrompt },
       { role: 'user' as const, content: input },
     ]
 
-    const zai = await ZAI.create()
-    const completion = await zai.chat.completions.create({ messages, thinking: { type: 'disabled' } })
-    const rawOutput = completion.choices[0]?.message?.content || ''
+    const rawOutput = await callAi(messages, { temperature: tool.temperature, maxTokens: tool.maxTokens })
 
     const isStructured = tool.outputType !== 'MARKDOWN'
     let structured: Record<string, unknown> = {}

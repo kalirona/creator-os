@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import ZAI from 'z-ai-web-dev-sdk'
+import { callAi } from '@/lib/ai/client'
 import { createRequestContext } from '@/lib/context'
 import { db } from '@/lib/db'
 
@@ -36,15 +36,13 @@ export async function POST(req: NextRequest) {
     const cost = 2
     if (user.credits < cost) return NextResponse.json({ error: 'Insufficient credits' }, { status: 402 })
 
-    const zai = await ZAI.create()
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'assistant', content: `You are an expert copywriter for creator businesses. You improve ${sectionType || 'page'} section content. ${instruction}` },
+    const raw = await callAi(
+      [
+        { role: 'system', content: `You are an expert copywriter for creator businesses. You improve ${sectionType || 'page'} section content. ${instruction}` },
         { role: 'user', content: JSON.stringify(content, null, 2) },
       ],
-      thinking: { type: 'disabled' },
-    })
-    const raw = completion.choices[0]?.message?.content || ''
+      { temperature: 0.7, maxTokens: 2000 }
+    )
     const newContent = parseJSON(raw)
     if (!newContent) return NextResponse.json({ error: 'AI failed to produce valid content. Please try again.' }, { status: 502 })
 

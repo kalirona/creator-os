@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import ZAI from 'z-ai-web-dev-sdk'
+import { callAi } from '@/lib/ai/client'
 import { createRequestContext } from '@/lib/context'
 import { db } from '@/lib/db'
 
@@ -63,15 +63,13 @@ export async function POST(req: NextRequest) {
     const user = ctx.user
     if (user.credits < tool.creditCost) return NextResponse.json({ error: `Insufficient credits (${tool.creditCost} required, ${user.credits} available)` }, { status: 402 })
 
-    const zai = await ZAI.create()
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'assistant', content: SYSTEM_PROMPT },
+    const raw = await callAi(
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: `What I'm selling: ${selling}\nCategory: ${category || 'General'}` },
       ],
-      thinking: { type: 'disabled' },
-    })
-    const raw = completion.choices[0]?.message?.content || ''
+      { temperature: 0.7, maxTokens: 4000 }
+    )
     const data = parseStructured(raw)
     if (!data || !Array.isArray(data.sections)) return NextResponse.json({ error: 'AI failed to generate valid landing page. Please try again.' }, { status: 502 })
 
