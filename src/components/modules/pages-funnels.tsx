@@ -1,5 +1,5 @@
 ﻿'use client'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Globe, FileText, Rocket, Menu, BookOpen, Server, Search as SearchIcon, Settings2,
@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { useApi, formatNumber, timeAgo } from '@/hooks/use-api'
+import { useAppStore } from '@/store/app-store'
 import { cn } from '@/lib/utils'
 import { EditorLayout } from '@/components/editor/EditorLayout'
 import { SectionRenderer } from '@/components/page-builder/SectionRenderer'
@@ -45,6 +46,16 @@ export function PagesFunnelsModule() {
   const [tab, setTab] = useState<SubTab>('pages')
   const [editingPage, setEditingPage] = useState<{ id: string; title: string; slug: string } | null>(null)
   const [generating, setGenerating] = useState(false)
+
+  // Auto-open the landing generator when triggered from the topbar "New Page" action
+  const createDialogFor = useAppStore((s) => s.createDialogFor)
+  const clearCreateDialog = useAppStore((s) => s.clearCreateDialog)
+  useEffect(() => {
+    if (createDialogFor === 'pages-funnels') {
+      setGenerating(true)
+      clearCreateDialog()
+    }
+  }, [createDialogFor, clearCreateDialog])
 
   if (editingPage) {
     return <PageEditor page={editingPage} />
@@ -840,7 +851,11 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
         publishBar={{
           status: editorStatus,
           onSave: () => saveSeo({ title: pageData.title }),
-          onPreview: () => toast.info('Preview opened in new tab'),
+          onPreview: () => {
+            const slug = pageData?.slug
+            if (slug) window.open(`/p/${slug}?preview=1`, '_blank', 'noopener')
+            else toast.error('Save the page first to preview it')
+          },
           onPublish: () => publish(),
         }}
       >

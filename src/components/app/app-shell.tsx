@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { usePathname, useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/app/sidebar'
@@ -61,14 +61,19 @@ export function AppShell() {
   const builderCourseId = useAppStore((s) => s.builderCourseId)
   const previewCourseId = useAppStore((s) => s.previewCourseId)
   const [seeded, setSeeded] = useState(false)
+  const activeModuleRef = useRef(activeModule)
+  useEffect(() => {
+    activeModuleRef.current = activeModule
+  })
   const Active = MODULES[activeModule] ?? DashboardModule
 
-  // Route -> store (deep links, refresh, back/forward). Seeded once on mount.
+  // Route -> store (deep links, refresh, back/forward). Only reacts to pathname changes
+  // so programmatic setActiveModule(...) calls are never reverted.
   useEffect(() => {
     const fromPath = moduleFromPath(pathname)
-    if (fromPath !== activeModule) setActiveModule(fromPath)
+    if (fromPath !== activeModuleRef.current) setActiveModule(fromPath)
     setSeeded(true)
-  }, [pathname, activeModule, setActiveModule])
+  }, [pathname, setActiveModule])
 
   // Store -> URL (any setActiveModule call reflects in the path)
   useEffect(() => {

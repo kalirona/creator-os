@@ -6,7 +6,6 @@ import {
   DollarSign,
   Download,
   Package,
-  Eye,
   Archive,
   BarChart3,
   Star,
@@ -238,9 +237,6 @@ export function ProductsModule() {
                     <DropdownMenuContent align="end" className="w-44">
                       <DropdownMenuItem onClick={() => setEditingProduct(p)}>
                         <Pencil className="h-4 w-4 mr-2" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { window.open(`/product/${p.id}`, '_blank') }}>
-                        <Eye className="h-4 w-4 mr-2" /> Preview
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { toast.info('Viewing sales'); setActiveModule('store') }}>
                         <BarChart3 className="h-4 w-4 mr-2" /> View Sales

@@ -403,13 +403,13 @@ function getActionsForTool(slug: string, ctx: { exportFile: (f: string) => void;
   if (slug === 'SALES_PAGE_GENERATOR' || slug === 'LANDING_PAGE_GENERATOR') {
     return [
       { label: 'Export HTML', icon: Download, onClick: () => ctx.exportFile('html'), variant: 'outline' },
-      { label: 'Add to Website', icon: Plus, onClick: () => { ctx.setActiveModule('website'); toast.success('Added to website builder') }, variant: 'default' },
+      { label: 'Add to Website', icon: Plus, onClick: () => { ctx.setActiveModule('pages-funnels'); toast.success('Added to Pages & Funnels') }, variant: 'default' },
     ]
   }
   if (slug === 'BLOG_WRITER') {
     return [
       { label: 'Export MD', icon: Download, onClick: () => ctx.exportFile('md'), variant: 'outline' },
-      { label: 'Publish Blog', icon: Globe, onClick: () => { ctx.setActiveModule('website'); toast.success('Blog post published') }, variant: 'default' },
+      { label: 'Publish Blog', icon: Globe, onClick: () => { ctx.setActiveModule('pages-funnels'); toast.success('Blog post published') }, variant: 'default' },
     ]
   }
   if (slug === 'PRODUCT_STRATEGIST') {

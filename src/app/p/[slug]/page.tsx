@@ -8,6 +8,7 @@ export const revalidate = 0
 
 interface Props {
   params: Promise<{ slug: string }>
+  searchParams: Promise<{ preview?: string }>
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -25,10 +26,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default async function PublicPage({ params }: Props) {
+export default async function PublicPage({ params, searchParams }: Props) {
   const { slug } = await params
+  const { preview } = await searchParams
+  const isPreview = preview === '1'
   const page = await db.page.findFirst({
-    where: { slug, status: 'PUBLISHED' },
+    where: isPreview ? { slug } : { slug, status: 'PUBLISHED' },
     include: { sections: { orderBy: { position: 'asc' } } },
   })
   if (!page) notFound()
