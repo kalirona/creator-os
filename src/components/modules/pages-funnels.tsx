@@ -348,7 +348,7 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
   const pageData = data?.page
 
   const callApi = async (url: string, method: string, body?: unknown) => {
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: body ? JSON.stringify(body) : undefined })
     const raw = await res.text()
     if (!res.ok) { let m = 'Failed'; try { const j = JSON.parse(raw); m = j.error } catch { } throw new Error(m) }
     try { return JSON.parse(raw) } catch { return {} }
@@ -1113,7 +1113,7 @@ function FunnelEditor({ funnelId, funnelName, onBack, onChanged, onOpenPage }: {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const callApi = async (url: string, method: string, body?: unknown) => {
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: body ? JSON.stringify(body) : undefined })
     const raw = await res.text()
     if (!res.ok) { let m = 'Failed'; try { const j = JSON.parse(raw); m = j.error } catch { } throw new Error(m) }
     try { return JSON.parse(raw) } catch { return {} }
