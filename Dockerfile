@@ -44,13 +44,11 @@ COPY --from=builder --chown=1001:1001 /app/.next/standalone ./
 COPY --from=builder --chown=1001:1001 /app/.next/static ./.next/static
 # Copy public assets
 COPY --from=builder --chown=1001:1001 /app/public ./public
-# Copy Prisma schema + generated client
+# Copy Prisma schema
 COPY --from=builder --chown=1001:1001 /app/prisma ./prisma
-COPY --from=builder --chown=1001:1001 /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=1001:1001 /app/node_modules/@prisma ./node_modules/@prisma
-# Copy Prisma CLI for db push on startup
-COPY --from=builder --chown=1001:1001 /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder --chown=1001:1001 /app/node_modules/.bin ./node_modules/.bin
+# Copy the full node_modules so the Prisma CLI (`db push` at startup) can
+# resolve all of its transitive deps (e.g. `effect`), not just a subset.
+COPY --from=builder --chown=1001:1001 /app/node_modules ./node_modules
 
 # Copy entrypoint script
 COPY --chown=1001:1001 --chmod=755 docker-entrypoint.sh /app/docker-entrypoint.sh
