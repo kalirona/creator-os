@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { usePathname, useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/app/sidebar'
 import { Topbar } from '@/components/app/topbar'
 import { CommandPalette } from '@/components/app/command-palette'
@@ -46,11 +47,35 @@ const MODULES: Record<ModuleId, React.ComponentType> = {
   'media-library': MediaLibraryModule,
 }
 
-export default function Home() {
+function moduleFromPath(pathname: string): ModuleId {
+  const seg = pathname.split('/').filter(Boolean)[0]
+  if (seg && seg in MODULES) return seg as ModuleId
+  return 'dashboard'
+}
+
+export function AppShell() {
+  const pathname = usePathname()
+  const router = useRouter()
   const activeModule = useAppStore((s) => s.activeModule)
+  const setActiveModule = useAppStore((s) => s.setActiveModule)
   const builderCourseId = useAppStore((s) => s.builderCourseId)
   const previewCourseId = useAppStore((s) => s.previewCourseId)
+  const [seeded, setSeeded] = useState(false)
   const Active = MODULES[activeModule] ?? DashboardModule
+
+  // Route -> store (deep links, refresh, back/forward). Seeded once on mount.
+  useEffect(() => {
+    const fromPath = moduleFromPath(pathname)
+    if (fromPath !== activeModule) setActiveModule(fromPath)
+    setSeeded(true)
+  }, [pathname, activeModule, setActiveModule])
+
+  // Store -> URL (any setActiveModule call reflects in the path)
+  useEffect(() => {
+    if (!seeded) return
+    const target = '/' + activeModule
+    if (pathname !== target) router.replace(target)
+  }, [seeded, activeModule, pathname, router])
 
   // ── Full-screen Course Builder (overrides entire dashboard layout) ──
   if (builderCourseId) {

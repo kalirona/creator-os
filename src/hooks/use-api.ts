@@ -18,7 +18,6 @@ export function useApi<T>(url: string | null, deps: unknown[] = []): UseApiState
 
   useEffect(() => {
     if (!url) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setData(null)
       setLoading(false)
       return
