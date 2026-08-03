@@ -58,7 +58,7 @@ export function PagesFunnelsModule() {
   }, [createDialogFor, clearCreateDialog])
 
   if (editingPage) {
-    return <PageEditor page={editingPage} />
+    return <PageEditor page={editingPage} onBack={() => setEditingPage(null)} />
   }
   if (generating) {
     return <LandingGenerator onDone={(p) => { setGenerating(false); if (p) setEditingPage(p) }} onCancel={() => setGenerating(false)} />
@@ -478,7 +478,17 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
   const editorStatus: EditorStatus = pageData.status === 'PUBLISHED' ? 'published' : 'draft'
 
   return (
-    <div className="h-screen">
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      <div className="flex items-center gap-2 px-4 py-2 border-b bg-card/80 backdrop-blur-sm">
+        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
+          <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Back</span>
+        </Button>
+        <div className="flex-1" />
+        <Badge variant={editorStatus === 'published' ? 'default' : 'secondary'} className="text-xs">
+          {editorStatus}
+        </Badge>
+      </div>
+      <div className="flex-1 min-h-0">
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setActiveDrag(null)}>
       <EditorLayout
         leftSidebar={{
@@ -899,8 +909,9 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
             </div>
           </div>
         ) : null}
-      </DragOverlay>
-      </DndContext>
+       </DragOverlay>
+       </DndContext>
+      </div>
     </div>
   )
 }
