@@ -10,12 +10,10 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove, s
 import { CSS } from '@dnd-kit/utilities'
 import {
   ArrowLeft, Plus, GripVertical, ChevronDown, ChevronRight, MoreVertical, Pencil, Copy,
-  Trash2, Eye, Save, Rocket, Archive, Undo2, Redo2,
-  Loader2, CheckCircle2, AlertCircle, CircleDot,
-  BookOpen, FileText, Video, FileQuestion, Download, Type, FileEdit, Clock,
-  Keyboard, X, Settings, Sparkles, Image as ImageIcon, Code, PlayCircle,
-  DollarSign, Users, Lock, Globe, Link2,
-  PanelLeft, PanelRight,
+  Trash2, Eye, Undo2, Redo2, AlertCircle,
+  BookOpen, FileText, Video, FileQuestion, Download, Type, FileEdit,
+  X, Settings, Image as ImageIcon, Code, PlayCircle,
+  DollarSign, Users, Lock, Globe,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +31,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { EditorLayout } from '@/components/editor/EditorLayout'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
+import { LessonBlocks } from '@/components/course-builder/lesson-blocks'
 import { EmptyState } from '@/components/ui-enterprise/EmptyState'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
 import type { EditorStatus } from '@/components/editor/EditorLayout'
@@ -64,7 +63,7 @@ export function CourseBuilder({ courseId }: { courseId: string }) {
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
-  const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [, setSaveState] = useState<SaveState>('idle')
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -805,6 +804,7 @@ function LessonRow({
 }
 
 function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: Partial<Lesson>) => void }) {
+  const [mode, setMode] = useState<'blocks' | 'rich'>('blocks')
   const [showBlockPicker, setShowBlockPicker] = useState(false)
   const [showVideoInput, setShowVideoInput] = useState(false)
   const [videoUrl, setVideoUrl] = useState('')
@@ -881,12 +881,35 @@ function LessonEditor({ lesson, onUpdate }: { lesson: Lesson; onUpdate: (patch: 
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Lesson Content</Label>
-        <RichTextEditor
-          value={lesson.content}
-          onChange={(html) => onUpdate({ content: html })}
-          placeholder={'Write your lesson content here.\n\nStart typing to build your lesson with rich text, images, tables, and more.'}
-        />
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Lesson Content</Label>
+          <div className="flex gap-1 rounded-lg bg-muted p-1">
+            <button
+              onClick={() => setMode('blocks')}
+              className={cn('rounded-md px-3 py-1 text-xs font-medium transition', mode === 'blocks' ? 'bg-background shadow-sm' : 'text-muted-foreground')}
+            >
+              Blocks
+            </button>
+            <button
+              onClick={() => setMode('rich')}
+              className={cn('rounded-md px-3 py-1 text-xs font-medium transition', mode === 'rich' ? 'bg-background shadow-sm' : 'text-muted-foreground')}
+            >
+              Rich text
+            </button>
+          </div>
+        </div>
+        {mode === 'blocks' ? (
+          <LessonBlocks
+            html={lesson.content}
+            onCommit={(h) => onUpdate({ content: h })}
+          />
+        ) : (
+          <RichTextEditor
+            value={lesson.content}
+            onChange={(html) => onUpdate({ content: html })}
+            placeholder={'Write your lesson content here.\n\nStart typing to build your lesson with rich text, images, tables, and more.'}
+          />
+        )}
       </div>
 
       <div className="mt-6 flex flex-col items-center gap-3">
