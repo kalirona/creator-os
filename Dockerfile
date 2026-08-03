@@ -37,31 +37,28 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3007
 ENV HOSTNAME=0.0.0.0
 
-# Create non-root user
-RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs
-
-# Copy standalone output
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+# Run as numeric UID/GID so we don't depend on adduser/addgroup
+# (Debian 13/trixie bases dropped the adduser package; see oven-sh/bun#25441)
+COPY --from=builder --chown=1001:1001 /app/.next/standalone ./
 # Copy static assets
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=1001:1001 /app/.next/static ./.next/static
 # Copy public assets
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=1001:1001 /app/public ./public
 # Copy Prisma schema + generated client
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=1001:1001 /app/prisma ./prisma
+COPY --from=builder --chown=1001:1001 /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=1001:1001 /app/node_modules/@prisma ./node_modules/@prisma
 # Copy Prisma CLI for db push on startup
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin ./node_modules/.bin
+COPY --from=builder --chown=1001:1001 /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=1001:1001 /app/node_modules/.bin ./node_modules/.bin
 
 # Copy entrypoint script
-COPY --chown=nextjs:nodejs --chmod=755 docker-entrypoint.sh /app/docker-entrypoint.sh
+COPY --chown=1001:1001 --chmod=755 docker-entrypoint.sh /app/docker-entrypoint.sh
 
 # Create data directory for SQLite database (persisted via volume)
-RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
+RUN mkdir -p /app/data && chown 1001:1001 /app/data
 
-USER nextjs
+USER 1001:1001
 
 EXPOSE 3007
 
