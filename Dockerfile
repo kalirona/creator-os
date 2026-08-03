@@ -38,10 +38,8 @@ ENV PORT=3007
 ENV HOSTNAME=0.0.0.0
 
 # Create non-root user
-# Create non-root user natively without system package managers
-# DELETE the old broken RUN addgroup/adduser block entirely.
-# REPLACE it with this single line:
-USER nonroot
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs
 
 # Copy standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
