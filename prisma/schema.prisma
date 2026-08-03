@@ -32,6 +32,7 @@ model User {
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
   activityLogs  ActivityLog[]
+  mediaAssets   MediaAsset[]
 }
 
 model Workspace {
@@ -48,6 +49,8 @@ model Workspace {
   products      Product[]
   posts         CommunityPost[]
   customers     Customer[]
+  mediaAssets   MediaAsset[]
+  mediaFolders  MediaFolder[]
   emailCampaigns EmailCampaign[]
   affiliates    Affiliate[]
   pages         WebPage[]
@@ -579,5 +582,73 @@ model ActivityLog {
 
   @@index([workspaceId, createdAt])
   @@index([userId, createdAt])
+}
+
+// ===== Media Asset Management =====
+
+model MediaFolder {
+  id          String   @id @default(cuid())
+  workspaceId String
+  parentId    String?
+  name        String
+  slug        String
+  description String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent     MediaFolder? @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children   MediaFolder[] @relation("FolderTree")
+  assets     MediaAsset[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, parentId])
+}
+
+model MediaAsset {
+  id          String   @id @default(cuid())
+  workspaceId String
+  folderId    String?
+  userId      String?
+  fileName    String
+  originalName String
+  mimeType    String
+  fileSize    Int      // bytes
+  width       Int?
+  height      Int?
+  duration    Float?   // seconds for video/audio
+  thumbnailUrl String?
+  url         String
+  altText     String   @default("")
+  caption     String   @default("")
+  description String   @default("")
+  isPublic    Boolean  @default(false)
+  downloads   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  folder     MediaFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  usages     MediaUsage[]
+
+  @@index([workspaceId, folderId])
+  @@index([workspaceId, mimeType])
+  @@index([workspaceId, createdAt])
+}
+
+model MediaUsage {
+  id          String   @id @default(cuid())
+  assetId     String
+  workspaceId String
+  resourceType String  // course | product | page | blog_post | email | community_post
+  resourceId  String
+  field       String   // e.g. "thumbnail", "content", "video"
+  createdAt   DateTime @default(now())
+
+  asset      MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, resourceType, resourceId, field])
+  @@index([resourceType, resourceId])
 }
 
