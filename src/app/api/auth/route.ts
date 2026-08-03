@@ -2,38 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyPassword, hashPassword, validatePasswordStrength, createSession, refreshSession, destroySession } from '@/lib/auth'
 import { authConfig } from '@/lib/auth'
-
-// Simple in-memory rate limiter (per IP)
-const loginAttempts = new Map<string, { count: number; resetAt: number }>()
-const REGISTER_LIMIT = 5
-const LOGIN_LIMIT = 10
-const WINDOW_MS = 15 * 60 * 1000 // 15 minutes
-
-function getClientIp(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for')
-  return forwarded?.split(',')[0]?.trim() || 'unknown'
-}
-
-function checkRateLimit(ip: string, action: 'login' | 'register'): { allowed: boolean; remaining: number; resetAt: number } {
-  const now = Date.now()
-  const limit = action === 'login' ? LOGIN_LIMIT : REGISTER_LIMIT
-  const entry = loginAttempts.get(ip)
-
-  if (!entry || now > entry.resetAt) {
-    loginAttempts.set(ip, { count: 1, resetAt: now + WINDOW_MS })
-    return { allowed: true, remaining: limit - 1, resetAt: now + WINDOW_MS }
-  }
-
-  if (entry.count >= limit) {
-    return { allowed: false, remaining: 0, resetAt: entry.resetAt }
-  }
-
-  entry.count++
-  return { allowed: true, remaining: limit - entry.count, resetAt: entry.resetAt }
-}
+import { checkRateLimit, clearRateLimit, getClientIpFromRequest } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
-  const ip = getClientIp(request)
+  const ip = getClientIpFromRequest(
+    request.headers.get('x-forwarded-for'),
+    request.headers.get('x-real-ip')
+  )
   const body = await request.json()
   const { action } = body
 
@@ -62,7 +37,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
-    const { token, session } = await createSession(user.id)
+    const { token } = await createSession(user.id)
 
     const response = NextResponse.json({ success: true, user: { id: user.id, email: user.email, name: user.name } })
     response.cookies.set(authConfig.cookieName, token, {
@@ -73,7 +48,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Clear rate limit on successful login
-    loginAttempts.delete(ip)
+    clearRateLimit(ip)
 
     return response
   }

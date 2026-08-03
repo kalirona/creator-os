@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     const { generationId } = body as { generationId?: string }
     if (!generationId) return NextResponse.json({ error: 'generationId required' }, { status: 400 })
 
-    const gen = await db.aiGeneration.findUnique({ where: { id: generationId } })
+    const gen = await db.aiGeneration.findFirst({ where: { id: generationId, userId: ctx.user.id } })
     if (!gen) return NextResponse.json({ error: 'Generation not found' }, { status: 404 })
 
     interface CourseData {

@@ -38,6 +38,13 @@ export async function POST(req: NextRequest) {
     const systemPrompt = TOOL_SYSTEM_PROMPTS[tool] || TOOL_SYSTEM_PROMPTS.CHAT
     const cost = CREDIT_COSTS[tool] || 2
 
+    if (ctx.user.credits < cost) {
+      return NextResponse.json(
+        { error: `Insufficient credits (${cost} required, ${ctx.user.credits} available)` },
+        { status: 402 }
+      )
+    }
+
     const zai = await ZAI.create()
     const completion = await zai.chat.completions.create({
       messages: [
@@ -50,12 +57,10 @@ export async function POST(req: NextRequest) {
     const content = completion.choices[0]?.message?.content || ''
 
     try {
-      if (ctx.user.credits >= cost) {
-        await db.user.update({ where: { id: ctx.user.id }, data: { credits: { decrement: cost } } })
-        await db.creditTransaction.create({
-          data: { userId: ctx.user.id, amount: -cost, reason: `AI ${tool}` },
-        })
-      }
+      await db.user.update({ where: { id: ctx.user.id }, data: { credits: { decrement: cost } } })
+      await db.creditTransaction.create({
+        data: { userId: ctx.user.id, amount: -cost, reason: `AI ${tool}` },
+      })
     } catch {
       // ignore
     }

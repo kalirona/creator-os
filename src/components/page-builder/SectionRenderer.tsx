@@ -94,6 +94,13 @@ export function SectionRenderer({ type, content, selected, onClick, editing, onF
     onClick && 'cursor-pointer',
   )
 
+  const style = (content.style as { align?: string; background?: string; paddingY?: number; maxWidth?: number } | undefined) || {}
+  const styleProps: React.CSSProperties = {}
+  if (style.align) styleProps.textAlign = style.align as React.CSSProperties['textAlign']
+  if (style.background) styleProps.backgroundColor = style.background
+  if (style.paddingY != null) { styleProps.paddingTop = style.paddingY; styleProps.paddingBottom = style.paddingY }
+  if (style.maxWidth != null) { styleProps.maxWidth = style.maxWidth; styleProps.marginInline = 'auto' }
+
   const render = () => {
     switch (type) {
       case 'HERO': return <HeroSection content={content} editing={editing} onFieldChange={onFieldChange} />
@@ -116,7 +123,9 @@ export function SectionRenderer({ type, content, selected, onClick, editing, onF
 
   return (
     <div className={wrapperClass} onClick={onClick}>
-      {render()}
+      <div className="w-full" style={styleProps}>
+        {render()}
+      </div>
     </div>
   )
 }
@@ -155,8 +164,8 @@ function HeroSection({ content, editing, onFieldChange }: RenderProps & { editin
 
 // ---------- HEADING ----------
 function HeadingSection({ content, editing, onFieldChange }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void }) {
-  const c = content as { text?: string; alignment?: string }
-  const align = c.alignment || 'center'
+  const c = content as { text?: string; alignment?: string; style?: { align?: string } }
+  const align = c.style?.align || c.alignment || 'center'
   return (
     <section className="px-6 py-10">
       <EditableText
@@ -170,7 +179,6 @@ function HeadingSection({ content, editing, onFieldChange }: RenderProps & { edi
 
 // ---------- TEXT ----------
 function TextSection({ content, editing, onFieldChange }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void }) {
-  const c = content as { text?: string }
   return (
     <section className="px-6 py-8">
       <EditableText

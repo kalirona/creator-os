@@ -1,12 +1,12 @@
-'use client'
+﻿'use client'
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   Globe, FileText, Rocket, Menu, BookOpen, Server, Search as SearchIcon, Settings2,
-  Plus, Eye, EyeOff, Copy, ArrowUp, ArrowDown, Trash2, Pencil, Sparkles, Languages,
-  Loader2, ArrowLeft, Save, Check, Zap, ExternalLink, Megaphone, Star, ShoppingCart,
-  HelpCircle, Type, Mail, Clock, Image as ImageIcon, Video, Layout, ChevronRight,
-  TrendingUp, Users, DollarSign, FileCode, Wand2, Send, GripVertical,
+  Plus, Eye, EyeOff, Copy, ArrowUp, ArrowDown, Trash2, Pencil, Sparkles,
+  Loader2, ArrowLeft, Save, Check, Zap, ExternalLink, Megaphone, ShoppingCart,
+  Mail, Layout, ChevronRight,
+  TrendingUp, Users, DollarSign, Send, GripVertical, Wand2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -23,13 +23,13 @@ import {
 import { toast } from 'sonner'
 import { useApi, formatNumber, timeAgo } from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
-import { useAppStore } from '@/store/app-store'
 import { EditorLayout } from '@/components/editor/EditorLayout'
 import { SectionRenderer } from '@/components/page-builder/SectionRenderer'
+import { SectionSettingsPanel, SECTION_TYPES } from '@/components/page-builder/section-settings'
+import type { Section } from '@/components/page-builder/section-settings'
 import { EmptyState } from '@/components/ui-enterprise/EmptyState'
 import { LoadingState } from '@/components/ui-enterprise/LoadingState'
 import { ErrorState } from '@/components/ui-enterprise/ErrorState'
-import { AppCard } from '@/components/ui-enterprise/AppCard'
 import type { EditorStatus } from '@/components/editor/EditorLayout'
 
 import {
@@ -46,7 +46,7 @@ export function PagesFunnelsModule() {
   const [generating, setGenerating] = useState(false)
 
   if (editingPage) {
-    return <PageEditor page={editingPage} onBack={() => setEditingPage(null)} />
+    return <PageEditor page={editingPage} />
   }
   if (generating) {
     return <LandingGenerator onDone={(p) => { setGenerating(false); if (p) setEditingPage(p) }} onCancel={() => setGenerating(false)} />
@@ -55,7 +55,7 @@ export function PagesFunnelsModule() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Launch pages, landing pages, and sales funnels — built to sell, not to design.</p>
+        <p className="text-sm text-muted-foreground">Launch pages, landing pages, and sales funnels â€” built to sell, not to design.</p>
         <Button size="sm" onClick={() => setGenerating(true)}><Sparkles className="h-4 w-4 mr-1.5 text-primary" /> AI Landing Page</Button>
       </div>
 
@@ -142,7 +142,7 @@ function PagesList({ type, onEdit, onGenerate }: { type: string; onEdit: (p: { i
           <CardContent className="p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/30"><Sparkles className="h-6 w-6 text-primary-foreground" /></div>
-              <div><p className="font-semibold">Generate a landing page with AI</p><p className="text-xs text-muted-foreground">Tell us what you're selling. We'll generate the headline, benefits, features, pricing, testimonials, FAQ, CTA, and SEO — automatically.</p></div>
+              <div><p className="font-semibold">Generate a landing page with AI</p><p className="text-xs text-muted-foreground">Tell us what you're selling. We'll generate the headline, benefits, features, pricing, testimonials, FAQ, CTA, and SEO â€” automatically.</p></div>
             </div>
             <Button onClick={onGenerate}><Wand2 className="h-4 w-4 mr-1.5" />Generate</Button>
           </CardContent>
@@ -248,7 +248,7 @@ function LandingGenerator({ onDone, onCancel }: { onDone: (p: { id: string; titl
             </div>
           )}
           <div className="flex items-center justify-between pt-2">
-            <p className="text-xs text-muted-foreground">7 credits · ~20 seconds</p>
+            <p className="text-xs text-muted-foreground">7 credits Â· ~20 seconds</p>
             <Button onClick={generate} disabled={loading || !selling.trim()}><Sparkles className="h-4 w-4 mr-1.5" />{loading ? 'Generating...' : 'Generate landing page'}</Button>
           </div>
         </CardContent>
@@ -313,7 +313,7 @@ function FunnelGenerator({ onDone, onCancel }: { onDone: (f: { id: string; name:
             </div>
           )}
           <div className="flex items-center justify-between pt-2">
-            <p className="text-xs text-muted-foreground">15 credits · ~30 seconds</p>
+            <p className="text-xs text-muted-foreground">15 credits Â· ~30 seconds</p>
             <Button onClick={generate} disabled={loading || !selling.trim()}><Sparkles className="h-4 w-4 mr-1.5" />{loading ? 'Generating...' : 'Generate funnel'}</Button>
           </div>
         </CardContent>
@@ -323,33 +323,15 @@ function FunnelGenerator({ onDone, onCancel }: { onDone: (f: { id: string; name:
 }
 
 // ===== Section-based Page Editor (no canvas, no drag-drop) =====
-interface Section { id: string; pageId: string; type: string; content: Record<string, unknown>; position: number; isHidden: boolean }
 interface FullPage { id: string; title: string; slug: string; type: string; status: string; category: string; seoTitle: string; seoDescription: string; visits: number; conversions: number; sections: Section[] }
 
-const SECTION_TYPES = [
-  { type: 'HERO', name: 'Hero', icon: Megaphone, desc: 'Headline + CTA' },
-  { type: 'HEADING', name: 'Heading', icon: Type, desc: 'Section title' },
-  { type: 'TEXT', name: 'Text', icon: FileText, desc: 'Paragraph' },
-  { type: 'BENEFITS', name: 'Benefits', icon: Star, desc: 'Outcome benefits' },
-  { type: 'FEATURES', name: 'Features', icon: Layout, desc: 'Feature grid' },
-  { type: 'PRICING', name: 'Pricing', icon: ShoppingCart, desc: 'Pricing tiers' },
-  { type: 'TESTIMONIALS', name: 'Testimonials', icon: Star, desc: 'Social proof' },
-  { type: 'FAQ', name: 'FAQ', icon: HelpCircle, desc: 'Q&A' },
-  { type: 'VIDEO', name: 'Video', icon: Video, desc: 'Embed video' },
-  { type: 'GALLERY', name: 'Gallery', icon: ImageIcon, desc: 'Image gallery' },
-  { type: 'COUNTDOWN', name: 'Countdown', icon: Clock, desc: 'Timer' },
-  { type: 'CTA', name: 'Call to Action', icon: Megaphone, desc: 'Conversion CTA' },
-  { type: 'NEWSLETTER', name: 'Newsletter', icon: Mail, desc: 'Email capture' },
-  { type: 'FOOTER', name: 'Footer', icon: Layout, desc: 'Page footer' },
-]
-
-function PageEditor({ page, onBack }: { page: { id: string; title: string; slug: string }; onBack: () => void }) {
+function PageEditor({ page }: { page: { id: string; title: string; slug: string } }) {
   const { data, loading, error, refetch } = useApi<{ page: FullPage }>(`/api/data/page-sections?pageId=${page.id}`)
   const [selectedSection, setSelectedSection] = useState<Section | null>(null)
   const [hoveredSection, setHoveredSection] = useState<string | null>(null)
   const [showAddPanel, setShowAddPanel] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
+  const [, setSaving] = useState(false)
 
   const pageData = data?.page
 
@@ -385,7 +367,7 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
     setSelectedSection(updated)
     updateSection(s.id, content)
   }
-  const aiAction = async (s: Section, action: string) => { setBusy(s.id + action); try { const d = await callApi('/api/ai/section-rewrite', 'POST', { action, content: s.content, sectionType: s.type }); const updated = { ...s, content: d.content }; await updateSection(s.id, d.content); toast.success(`AI ${action.toLowerCase()} done! -${d.creditsUsed} credits`); refetch() } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) } }
+  const aiAction = async (s: Section, action: string) => { setBusy(s.id + action); try { const d = await callApi('/api/ai/section-rewrite', 'POST', { action, content: s.content, sectionType: s.type }); await updateSection(s.id, d.content); toast.success(`AI ${action.toLowerCase()} done! -${d.creditsUsed} credits`); refetch() } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(null) } }
 
   const reorderSections = async (ids: string[]) => {
     try { await callApi('/api/data/page-sections', 'PUT', { action: 'reorder', ids, pageId: page.id }); refetch() }
@@ -867,93 +849,6 @@ function getSectionPreview(s: Section): string {
   return s.type
 }
 
-// ===== Right-side section settings panel =====
-function SectionSettingsPanel({ section, onUpdate }: { section: Section; onUpdate: (c: Record<string, unknown>) => void }) {
-  const meta = SECTION_TYPES.find((t) => t.type === section.type)
-  const Icon = meta?.icon || Layout
-  const c = section.content
-  const set = (k: string, v: unknown) => onUpdate({ ...c, [k]: v })
-
-  return (
-    <Card>
-      <CardHeader className="pb-3 flex-row items-center justify-between">
-        <CardTitle className="text-sm flex items-center gap-2"><Icon className="h-4 w-4 text-primary" />{meta?.name} settings</CardTitle>
-        <Badge variant="secondary" className="text-[10px]">Section {section.position + 1}</Badge>
-      </CardHeader>
-      <CardContent className="space-y-3 max-h-[70vh] overflow-y-auto scroll-thin">
-        <SectionFields type={section.type} content={c} set={set} />
-      </CardContent>
-    </Card>
-  )
-}
-
-function Field({ k, label, textarea, content, set }: { k: string; label: string; textarea?: boolean; content: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
-  return (
-    <div>
-      <Label className="text-xs">{label}</Label>
-      {textarea ? <Textarea className="mt-1 text-sm" rows={3} value={String(content[k] ?? '')} onChange={(e) => set(k, e.target.value)} /> : <Input className="mt-1 h-8 text-sm" value={String(content[k] ?? '')} onChange={(e) => set(k, e.target.value)} />}
-    </div>
-  )
-}
-
-function SectionFields({ type, content, set }: { type: string; content: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
-  if (type === 'HERO') return <><Field k="emoji" label="Emoji" content={content} set={set} /><Field k="headline" label="Headline" content={content} set={set} /><Field k="subheadline" label="Subheadline" textarea content={content} set={set} /><Field k="ctaText" label="Primary CTA" content={content} set={set} /><Field k="ctaSecondary" label="Secondary CTA" content={content} set={set} /></>
-  if (type === 'HEADING') return <><Field k="text" label="Heading text" content={content} set={set} /><div><Label className="text-xs">Alignment</Label><Select value={String(content.alignment || 'center')} onValueChange={(v) => set('alignment', v)}><SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="left">Left</SelectItem><SelectItem value="center">Center</SelectItem><SelectItem value="right">Right</SelectItem></SelectContent></Select></div></>
-  if (type === 'TEXT') return <><Field k="text" label="Paragraph" textarea content={content} set={set} /></>
-  if (type === 'CTA') return <><Field k="headline" label="Headline" content={content} set={set} /><Field k="subtext" label="Subtext" textarea content={content} set={set} /><Field k="ctaText" label="Button text" content={content} set={set} /></>
-  if (type === 'NEWSLETTER') return <><Field k="heading" label="Heading" content={content} set={set} /><Field k="subtext" label="Subtext" content={content} set={set} /><Field k="placeholder" label="Input placeholder" content={content} set={set} /><Field k="ctaText" label="Button text" content={content} set={set} /></>
-  if (type === 'VIDEO') return <><Field k="heading" label="Heading" content={content} set={set} /><Field k="videoUrl" label="Video URL" content={content} set={set} /><Field k="description" label="Description" textarea content={content} set={set} /></>
-  if (type === 'COUNTDOWN') return <><Field k="heading" label="Heading" content={content} set={set} /><Field k="endDate" label="End date (ISO)" content={content} set={set} /><Field k="ctaText" label="CTA text" content={content} set={set} /></>
-  if (type === 'FOOTER') return <><Field k="brand" label="Brand name" content={content} set={set} /><Field k="tagline" label="Tagline" content={content} set={set} /></>
-  if (type === 'FEATURES' || type === 'BENEFITS') {
-    const items = (content.items as { icon?: string; title?: string; description?: string }[]) || []
-    return <><Field k="heading" label="Heading" content={content} set={set} />{type === 'FEATURES' && <Field k="subheading" label="Subheading" content={content} set={set} />}
-      <div><Label className="text-xs">Items</Label>
-        <div className="space-y-2 mt-1">{items.map((it, i) => (
-          <div key={i} className="rounded-lg border p-2 space-y-1.5">
-            {type === 'FEATURES' && <Input className="h-7 text-sm" placeholder="Icon (emoji)" value={it.icon || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, icon: e.target.value }; set('items', n) }} />}
-            <Input className="h-7 text-sm" placeholder="Title" value={it.title || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, title: e.target.value }; set('items', n) }} />
-            <Textarea className="text-sm" rows={2} placeholder="Description" value={it.description || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, description: e.target.value }; set('items', n) }} />
-          </div>
-        ))}<Button size="sm" variant="outline" className="mt-1" onClick={() => set('items', [...items, { icon: '✨', title: '', description: '' }])}><Plus className="h-3 w-3 mr-1" />Add item</Button></div>
-      </div></>
-  }
-  if (type === 'PRICING') {
-    const plans = (content.plans as { name?: string; price?: number; interval?: string; features?: string[]; cta?: string; highlighted?: boolean }[]) || []
-    return <><Field k="heading" label="Heading" content={content} set={set} />
-      <div><Label className="text-xs">Plans</Label>
-        <div className="space-y-2 mt-1">{plans.map((p, i) => (
-          <div key={i} className="rounded-lg border p-2 space-y-1.5">
-            <div className="grid grid-cols-3 gap-1.5">
-              <Input className="h-7 text-sm" placeholder="Name" value={p.name || ''} onChange={(e) => { const n = [...plans]; n[i] = { ...p, name: e.target.value }; set('plans', n) }} />
-              <Input type="number" className="h-7 text-sm" placeholder="$" value={p.price ?? 0} onChange={(e) => { const n = [...plans]; n[i] = { ...p, price: Number(e.target.value) }; set('plans', n) }} />
-              <Input className="h-7 text-sm" placeholder="/mo" value={p.interval || ''} onChange={(e) => { const n = [...plans]; n[i] = { ...p, interval: e.target.value }; set('plans', n) }} />
-            </div>
-            <Input className="h-7 text-sm" placeholder="CTA" value={p.cta || ''} onChange={(e) => { const n = [...plans]; n[i] = { ...p, cta: e.target.value }; set('plans', n) }} />
-            <Textarea className="text-sm" rows={2} placeholder="Features (one per line)" value={(p.features || []).join('\n')} onChange={(e) => { const n = [...plans]; n[i] = { ...p, features: e.target.value.split('\n') }; set('plans', n) }} />
-          </div>
-        ))}</div>
-      </div></>
-  }
-  if (type === 'TESTIMONIALS' || type === 'FAQ') {
-    const items = content.items as Record<string, string>[]
-    const key1 = type === 'TESTIMONIALS' ? 'quote' : 'question'
-    const key2 = type === 'TESTIMONIALS' ? 'name' : 'answer'
-    const key3 = type === 'TESTIMONIALS' ? 'role' : ''
-    return <><Field k="heading" label="Heading" content={content} set={set} />
-      <div><Label className="text-xs">Items</Label>
-        <div className="space-y-2 mt-1">{items?.map((it, i) => (
-          <div key={i} className="rounded-lg border p-2 space-y-1.5">
-            <Textarea className="text-sm" rows={2} placeholder={key1} value={it[key1] || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, [key1]: e.target.value }; set('items', n) }} />
-            {key3 ? <div className="grid grid-cols-2 gap-1.5"><Input className="h-7 text-sm" placeholder="Name" value={it[key2] || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, [key2]: e.target.value }; set('items', n) }} /><Input className="h-7 text-sm" placeholder="Role" value={it[key3] || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, [key3]: e.target.value }; set('items', n) }} /></div>
-              : <Input className="h-7 text-sm" placeholder="Answer" value={it[key2] || ''} onChange={(e) => { const n = [...items]; n[i] = { ...it, [key2]: e.target.value }; set('items', n) }} />}
-          </div>
-        ))}<Button size="sm" variant="outline" className="mt-1" onClick={() => set('items', [...(items || []), { [key1]: '', [key2]: '', ...(key3 ? { [key3]: '' } : {}) }])}><Plus className="h-3 w-3 mr-1" />Add item</Button></div>
-      </div></>
-  }
-  return <p className="text-xs text-muted-foreground">No editable fields for this section type.</p>
-}
-
 // ===== Funnels panel =====
 function FunnelsPanel() {
   const { data, loading, error, refetch } = useApi<{ funnels: { id: string; name: string; description: string; type: string; status: string; visits: number; conversions: number; revenue: number; steps: { id: string; name: string; type: string; position: number; isRequired: boolean; page: { id: string; title: string; slug: string } | null }[] }[]; stats: { total: number; live: number; totalVisits: number; totalRevenue: number } }>('/api/data/funnels')
@@ -1032,7 +927,7 @@ function FunnelsPanel() {
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setEditing({ id: f.id, name: f.name })}><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600"><Megaphone className="h-5 w-5" /></div><div><p className="font-semibold text-sm">{f.name}</p><p className="text-xs text-muted-foreground">{f.description || 'No description'}</p></div></div>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className={cn('text-xs', f.status === 'LIVE' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600')}>{f.status}</Badge>
-              <span className="text-xs text-muted-foreground hidden sm:inline">{formatNumber(f.visits)} visits · {f.conversions} conv. · ${formatNumber(f.revenue)}</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">{formatNumber(f.visits)} visits Â· {f.conversions} conv. Â· ${formatNumber(f.revenue)}</span>
               <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => setEditing({ id: f.id, name: f.name })}><Settings2 className="h-3.5 w-3.5" />Edit</Button>
               <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-rose-500 hover:text-rose-600" onClick={() => deleteFunnel(f.id, f.name)}><Trash2 className="h-4 w-4" /></Button>
             </div>
@@ -1366,7 +1261,7 @@ function StepPreviewDialog({ preview, onClose }: { preview: { pageId: string; na
             {preview?.name}
           </DialogTitle>
           <DialogDescription>
-            {data?.page?.title || preview?.name} — how this step looks to visitors.
+            {data?.page?.title || preview?.name} â€” how this step looks to visitors.
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto scroll-thin bg-grid">
@@ -1415,7 +1310,7 @@ function DomainManagerDialog({ open, onOpenChange, domains, onAdd, onRemove }: {
             <p className="text-[11px] text-muted-foreground leading-relaxed">Add this record at your domain registrar, then reconnect to verify. Propagation may take a few minutes.</p>
             <div className="mt-2 flex items-center gap-2 text-[11px] font-mono">
               <span className="rounded bg-background border px-2 py-1">A</span>
-              <span className="rounded bg-background border px-2 py-1 flex-1 truncate">yourbrand.com → creatoros.io</span>
+              <span className="rounded bg-background border px-2 py-1 flex-1 truncate">yourbrand.com â†’ creatoros.io</span>
               <span className="rounded bg-background border px-2 py-1">TTL 600</span>
             </div>
           </div>
@@ -1456,7 +1351,7 @@ function NavigationPanel() {
         ))}<Button size="sm" variant="outline"><Plus className="h-3.5 w-3.5 mr-1.5" />Add menu item</Button></div>
       </div>
       <div className="border-t pt-4"><div className="flex items-center justify-between"><div><p className="text-sm font-medium">Show login button</p><p className="text-xs text-muted-foreground">Display a "Log in" link in the header.</p></div><Switch defaultChecked /></div></div>
-      <div className="border-t pt-4"><div className="flex items-center justify-between"><div><p className="text-sm font-medium">Announcement bar</p><p className="text-xs text-muted-foreground">Promotional bar at the top of your site.</p></div><Switch defaultChecked /></div><Input className="mt-2 h-8 text-sm" defaultValue="🎉 Black Friday: 50% off all annual plans!" /></div>
+      <div className="border-t pt-4"><div className="flex items-center justify-between"><div><p className="text-sm font-medium">Announcement bar</p><p className="text-xs text-muted-foreground">Promotional bar at the top of your site.</p></div><Switch defaultChecked /></div><Input className="mt-2 h-8 text-sm" defaultValue="ðŸŽ‰ Black Friday: 50% off all annual plans!" /></div>
       <Button size="sm" onClick={() => toast.success('Navigation saved')}><Save className="h-3.5 w-3.5 mr-1.5" />Save navigation</Button>
     </CardContent></Card>
   )
@@ -1524,7 +1419,7 @@ function BlogEditor({ post, onClose, onSaved }: { post: BlogPost | null; onClose
   const [content, setContent] = useState(post?.content || '')
   const [category, setCategory] = useState(post?.category || 'General')
   const [tags, setTags] = useState((post?.tags || []).join(', '))
-  const [status, setStatus] = useState(post?.status || 'DRAFT')
+  const [status] = useState(post?.status || 'DRAFT')
   const [coverUrl, setCoverUrl] = useState(post?.coverUrl || '')
   const [saving, setSaving] = useState(false)
 
@@ -1639,7 +1534,7 @@ function DomainsPanel() {
 
   return (
     <div className="space-y-4">
-      <Card className="border-emerald-500/20 bg-emerald-500/5"><CardContent className="p-4 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600"><Check className="h-5 w-5" /></div><div className="flex-1"><p className="text-sm font-medium">creatoros.io</p><p className="text-xs text-muted-foreground">Primary domain · Built-in SSL · Shareable links</p></div><Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600">Connected</Badge></CardContent></Card>
+      <Card className="border-emerald-500/20 bg-emerald-500/5"><CardContent className="p-4 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600"><Check className="h-5 w-5" /></div><div className="flex-1"><p className="text-sm font-medium">creatoros.io</p><p className="text-xs text-muted-foreground">Primary domain Â· Built-in SSL Â· Shareable links</p></div><Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600">Connected</Badge></CardContent></Card>
       <Card><CardHeader><CardTitle className="text-sm flex items-center gap-2"><Server className="h-4 w-4 text-primary" />Connect a custom domain</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div><Label>Domain name</Label><Input className="mt-1.5" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="yourbrand.com" onKeyDown={(e) => { if (e.key === 'Enter') connect() }} /><p className="text-[10px] text-muted-foreground mt-1">Add an A record pointing <span className="font-mono">yourbrand.com</span> to <span className="font-mono">creatoros.io</span>.</p></div>
@@ -1673,15 +1568,13 @@ function DomainsPanel() {
   )
 }
 
-function ArrowRight() { return <ChevronRight className="h-3.5 w-3.5 text-muted-foreground rotate-[-90deg]" /> }
-
 // ===== SEO panel =====
 function SeoPanel() {
   return (
     <div className="space-y-4">
       <Card><CardHeader><CardTitle className="text-sm flex items-center gap-2"><SearchIcon className="h-4 w-4 text-primary" />Global SEO Settings</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div><Label>Default meta title</Label><Input className="mt-1.5 text-sm" defaultValue="CreatorOS — The All-in-One Platform for Creators" /></div>
+          <div><Label>Default meta title</Label><Input className="mt-1.5 text-sm" defaultValue="CreatorOS â€” The All-in-One Platform for Creators" /></div>
           <div><Label>Default meta description</Label><Textarea className="mt-1.5 text-sm" rows={2} defaultValue="Sell courses, products, and memberships. Build a community. Create content 10x faster with AI." /></div>
           <div className="grid sm:grid-cols-2 gap-3">
             <div><Label>Twitter card type</Label><Select defaultValue="summary_large_image"><SelectTrigger className="mt-1.5 text-sm"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="summary">Summary</SelectItem><SelectItem value="summary_large_image">Summary with large image</SelectItem></SelectContent></Select></div>
@@ -1724,7 +1617,7 @@ function SiteSettingsPanel() {
       {/* Announcement bar */}
       <Card><CardHeader className="pb-3"><CardTitle className="text-sm">Announcement Bar</CardTitle></CardHeader><CardContent className="space-y-2">
         <div className="flex items-center justify-between"><span className="text-xs">Enabled</span><Switch defaultChecked /></div>
-        <div><Label className="text-xs">Message</Label><Input className="mt-1 h-8 text-sm" defaultValue="🎉 Black Friday: 50% off all annual plans!" /></div>
+        <div><Label className="text-xs">Message</Label><Input className="mt-1 h-8 text-sm" defaultValue="ðŸŽ‰ Black Friday: 50% off all annual plans!" /></div>
         <Button size="sm" onClick={() => toast.success('Announcement bar saved')}><Save className="h-3.5 w-3.5 mr-1.5" />Save</Button>
       </CardContent></Card>
 

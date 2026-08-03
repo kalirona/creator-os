@@ -17,7 +17,11 @@ export async function GET() {
   if (authError) return authError
 
   const providers = await db.aiProvider.findMany({ include: { models: true }, orderBy: { priority: 'asc' } })
-  return NextResponse.json({ providers })
+  const masked = providers.map((p) => ({
+    ...p,
+    apiKey: p.apiKey ? `${'*'.repeat(8)}${p.apiKey.slice(-4)}` : '',
+  }))
+  return NextResponse.json({ providers: masked })
 }
 
 export async function PUT(req: NextRequest) {

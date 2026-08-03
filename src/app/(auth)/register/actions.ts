@@ -5,8 +5,15 @@ import { db } from '@/lib/db'
 import { hashPassword, validatePasswordStrength, createSession } from '@/lib/auth'
 import { authConfig } from '@/lib/auth'
 import { cookies } from 'next/headers'
+import { getClientIp, checkRateLimit } from '@/lib/rate-limit'
 
 export const register = validatedAction(registerSchema, async (data) => {
+  const ip = await getClientIp()
+  const rateLimit = checkRateLimit(ip, 'register')
+  if (!rateLimit.allowed) {
+    return { error: 'Too many registration attempts. Please try again later.' }
+  }
+
   const { valid, errors } = validatePasswordStrength(data.password)
   if (!valid) {
     return { error: errors[0] }
