@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sparkles, ArrowLeft, Loader2, Check, BookOpen, Video, FileQuestion,
@@ -15,7 +16,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { useAppStore } from '@/store/app-store'
 
 type Step = 'form' | 'generating' | 'review'
 
@@ -47,7 +47,7 @@ const EXAMPLES = [
 ]
 
 export function CourseGeneratorWizard({ onCancel }: { onCancel: () => void }) {
-  const openBuilder = useAppStore((s) => s.openBuilder)
+  const router = useRouter()
   const [step, setStep] = useState<Step>('form')
 
   // form
@@ -116,7 +116,7 @@ export function CourseGeneratorWizard({ onCancel }: { onCancel: () => void }) {
       if (!res.ok) throw new Error(data.error || 'Failed to create course')
       toast.success('Course created!', { description: `"${data.title}" has been added to your courses.` })
       onCancel()
-      setTimeout(() => openBuilder(data.courseId), 400)
+      setTimeout(() => router.push(`/courses/${data.courseId}/build`), 400)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to create course')
     } finally {

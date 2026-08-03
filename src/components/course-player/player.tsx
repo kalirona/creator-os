@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle2, Clock, FileText, FileQuestion, Lock, PlayCircle, Video, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useApi, formatNumber } from '@/hooks/use-api'
 import { useAppStore } from '@/store/app-store'
@@ -42,10 +43,10 @@ interface PreviewCourse {
   totalDuration: number
 }
 
-export function CoursePlayer() {
-  const previewCourseId = useAppStore((s) => s.previewCourseId)
-  const closePreview = useAppStore((s) => s.closePreview)
-  const openBuilder = useAppStore((s) => s.openBuilder)
+export function CoursePlayer({ courseId }: { courseId?: string }) {
+  const router = useRouter()
+  const storePreviewId = useAppStore((s) => s.previewCourseId)
+  const previewCourseId = courseId ?? storePreviewId
   const { data: courses, loading, error } = useApi<PreviewCourse[]>('/api/data/courses')
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
   const [sectionCollapsed, setSectionCollapsed] = useState<Record<string, boolean>>({})
@@ -58,7 +59,7 @@ export function CoursePlayer() {
   if (loading) return <LoadingState size="lg" text="Loading course preview..." />
   if (error || !course) return (
     <div className="p-8">
-      <ErrorState description={error || 'Course not found.'} action={{ label: 'Go back', onClick: closePreview }} />
+      <ErrorState description={error || 'Course not found.'} action={{ label: 'Go back', onClick: () => router.push('/courses') }} />
     </div>
   )
 
@@ -107,7 +108,7 @@ export function CoursePlayer() {
       <div className="flex flex-col flex-1 min-w-0">
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4 md:px-6">
           <div className="flex items-center gap-3 min-w-0">
-            <Button size="sm" variant="ghost" onClick={closePreview} className="gap-1.5 shrink-0"><ArrowLeft className="h-4 w-4" />Exit preview</Button>
+            <Button size="sm" variant="ghost" onClick={() => router.push('/courses')} className="gap-1.5 shrink-0"><ArrowLeft className="h-4 w-4" />Exit preview</Button>
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate">{course.title}</p>
               <p className="text-[10px] text-muted-foreground truncate">{course.category} · {course.level}</p>
@@ -115,7 +116,7 @@ export function CoursePlayer() {
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-[10px]">{course.status}</Badge>
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { closePreview(); openBuilder(course.id) }}>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => router.push(`/courses/${course.id}/build`)}>
               <Video className="h-3.5 w-3.5" />Edit in Builder
             </Button>
           </div>
@@ -210,7 +211,7 @@ export function CoursePlayer() {
         </div>
       </aside>
 
-      <button onClick={closePreview} className="absolute top-16 right-4 md:hidden flex h-9 w-9 items-center justify-center rounded-full bg-background border shadow" aria-label="Close preview">
+      <button onClick={() => router.push('/courses')} className="absolute top-16 right-4 md:hidden flex h-9 w-9 items-center justify-center rounded-full bg-background border shadow" aria-label="Close preview">
         <X className="h-4 w-4" />
       </button>
     </div>

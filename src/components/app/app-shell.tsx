@@ -23,8 +23,6 @@ import { SettingsModule } from '@/components/modules/settings'
 import { AdminModule } from '@/components/modules/admin'
 import { CertificatesModule } from '@/components/modules/certificates'
 import { MediaLibraryModule } from '@/components/modules/media-library'
-import { CourseBuilder } from '@/components/course-builder/builder'
-import { CoursePlayer } from '@/components/course-player/player'
 import type { ModuleId } from '@/lib/nav'
 
 const MODULES: Record<ModuleId, React.ComponentType> = {
@@ -58,8 +56,6 @@ export function AppShell() {
   const router = useRouter()
   const activeModule = useAppStore((s) => s.activeModule)
   const setActiveModule = useAppStore((s) => s.setActiveModule)
-  const builderCourseId = useAppStore((s) => s.builderCourseId)
-  const previewCourseId = useAppStore((s) => s.previewCourseId)
   const [seeded, setSeeded] = useState(false)
   const activeModuleRef = useRef(activeModule)
   useEffect(() => {
@@ -81,16 +77,6 @@ export function AppShell() {
     const target = '/' + activeModule
     if (pathname !== target) router.replace(target)
   }, [seeded, activeModule, pathname, router])
-
-  // ── Full-screen Course Builder (overrides entire dashboard layout) ──
-  if (builderCourseId) {
-    return <CourseBuilder courseId={builderCourseId} />
-  }
-
-  // ── Full-screen Course Preview (student-facing player) ──
-  if (previewCourseId) {
-    return <CoursePlayer />
-  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

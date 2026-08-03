@@ -26,7 +26,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
-import { useAppStore } from '@/store/app-store'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { EditorLayout } from '@/components/editor/EditorLayout'
@@ -55,7 +55,7 @@ const LESSON_TYPE_ICONS: Record<string, React.ElementType> = {
 }
 
 export function CourseBuilder({ courseId }: { courseId: string }) {
-  const closeBuilder = useAppStore((s) => s.closeBuilder)
+  const router = useRouter()
   const [showPreview, setShowPreview] = useState(false)
 
   const [course, setCourse] = useState<CourseFull | null>(null)
@@ -494,7 +494,7 @@ leftCollapsed={!leftOpen}
       className="h-screen"
     >
       <header slot="top-toolbar" className="sr-only">
-        <Button variant="ghost" size="sm" onClick={closeBuilder} className="gap-1.5">
+        <Button variant="ghost" size="sm" onClick={() => router.push('/courses')} className="gap-1.5">
           <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Courses</span>
         </Button>
       </header>

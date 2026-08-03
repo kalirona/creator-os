@@ -1,5 +1,6 @@
 ﻿'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   Star, Users, PlayCircle, Plus, GraduationCap, Sparkles, BookOpen,
@@ -57,8 +58,7 @@ export function CoursesModule() {
   const [generating, setGenerating] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const setActiveModule = useAppStore((s) => s.setActiveModule)
-  const openBuilder = useAppStore((s) => s.openBuilder)
-  const openPreview = useAppStore((s) => s.openPreview)
+  const router = useRouter()
 
   // Auto-open create dialog when triggered from topbar
   const createDialogFor = useAppStore((s) => s.createDialogFor)
@@ -181,7 +181,7 @@ export function CoursesModule() {
               <motion.div key={c.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
                 <Card className="group overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all flex flex-col h-full">
                   {/* Cover */}
-                  <div className={cn('relative h-32 bg-gradient-to-br cursor-pointer', COVER_GRADIENTS[i % COVER_GRADIENTS.length])} onClick={() => openBuilder(c.id)}>
+                  <div className={cn('relative h-32 bg-gradient-to-br cursor-pointer', COVER_GRADIENTS[i % COVER_GRADIENTS.length])} onClick={() => router.push(`/courses/${c.id}/build`)}>
                     <div className="absolute inset-0 flex items-center justify-center">
                       <GraduationCap className="h-12 w-12 text-foreground/30" />
                     </div>
@@ -191,7 +191,7 @@ export function CoursesModule() {
                   </div>
 
                   <CardContent className="p-4 flex flex-col flex-1">
-                    <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition cursor-pointer" onClick={() => openBuilder(c.id)}>{c.title}</h3>
+                    <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition cursor-pointer" onClick={() => router.push(`/courses/${c.id}/build`)}>{c.title}</h3>
                     <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2 flex-1">{c.description}</p>
                     <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Star className="h-3 w-3 fill-amber-400 text-amber-400" />{c.rating}</span>
@@ -201,7 +201,7 @@ export function CoursesModule() {
                     <div className="mt-3 flex items-center justify-between border-t pt-3">
                       <span className="text-sm font-bold text-primary">{c.price === 0 ? 'Free' : formatCurrency(c.price)}</span>
                       <div className="flex items-center gap-1">
-                        <Button size="sm" variant="ghost" className="h-8 text-xs gap-1" onClick={() => openBuilder(c.id)}>
+                        <Button size="sm" variant="ghost" className="h-8 text-xs gap-1" onClick={() => router.push(`/courses/${c.id}/build`)}>
                           <Pencil className="h-3.5 w-3.5" /> Edit
                         </Button>
                         <DropdownMenu>
@@ -211,7 +211,7 @@ export function CoursesModule() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44">
-                            <DropdownMenuItem onClick={() => openPreview(c.id)}><Eye className="h-4 w-4 mr-2" /> Preview</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/courses/${c.id}/preview`)}><Eye className="h-4 w-4 mr-2" /> Preview</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { toast.info('Opening analytics', { description: `Loading analytics for "${c.title}"` }); setActiveModule('analytics') }}><BarChart3 className="h-4 w-4 mr-2" /> View Analytics</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => duplicateCourse(c)}><Copy className="h-4 w-4 mr-2" /> Duplicate</DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -250,7 +250,7 @@ export function CoursesModule() {
           onCreated: (data) => {
             if (data?.id) {
               // Auto-open the builder for the newly created course
-              setTimeout(() => openBuilder(data.id as string), 300)
+              setTimeout(() => router.push(`/courses/${data.id}/build`), 300)
             }
           },
           fields: [
