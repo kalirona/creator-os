@@ -81,7 +81,8 @@ export async function createRequestContext(): Promise<RequestContext> {
     throw new Error('Authentication required')
   }
 
-  const sessionAge = new Date(payload.exp as number).getTime() - Date.now()
+  // JWT `exp` is a Unix timestamp in seconds; Date.now() returns milliseconds.
+  const sessionAge = (payload.exp as number) * 1000 - Date.now()
   if (session.expiresAt < new Date() || sessionAge <= 0) {
     await db.session.delete({ where: { id: payload.sessionId } }).catch(() => {})
     throw new Error('Authentication required')
