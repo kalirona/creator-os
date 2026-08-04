@@ -6,10 +6,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Sparkles, Lock } from 'lucide-react'
 import Link from 'next/link'
-import { useActionState } from 'react'
+import { useActionState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
   const [state, formAction, isPending] = useActionState(resetPassword, undefined)
@@ -97,5 +97,26 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md space-y-6">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/20">
+              <Sparkles className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-bold tracking-tight">Loading...</h1>
+            </div>
+          </div>
+        </div>
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   )
 }
