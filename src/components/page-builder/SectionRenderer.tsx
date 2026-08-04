@@ -19,12 +19,12 @@ interface RenderProps {
   onClick?: () => void
 }
 
-function AddItemButton({ path, template, onAddItem, className }: { path: string; template?: Record<string, unknown>; onAddItem?: (path: string, template: Record<string, unknown>) => void; className?: string }) {
+function AddItemButton({ path, template, onAddItem, className }: { path: string; template?: unknown; onAddItem?: (path: string, template: unknown) => void; className?: string }) {
   if (!onAddItem) return null
   return (
     <button
       type="button"
-      onClick={(e) => { e.stopPropagation(); onAddItem(path, template || {}) }}
+      onClick={(e) => { e.stopPropagation(); onAddItem(path, template ?? {}) }}
       className={cn(
         'flex items-center gap-1 rounded-lg border border-dashed border-primary/40 px-3 py-1.5 text-[10px] font-medium text-primary/80 transition hover:bg-primary/10 hover:text-primary',
         className,
@@ -103,7 +103,7 @@ export function SectionRenderer({ type, content, selected, onClick, editing, onF
   onClick?: () => void
   editing?: boolean
   onFieldChange?: (path: string, value: string) => void
-  onAddItem?: (path: string, template: Record<string, unknown>) => void
+  onAddItem?: (path: string, template: unknown) => void
 }) {
   const wrapperClass = cn(
     'group/section relative w-full transition-shadow',
@@ -111,12 +111,28 @@ export function SectionRenderer({ type, content, selected, onClick, editing, onF
     onClick && 'cursor-pointer',
   )
 
-  const style = (content.style as { align?: string; background?: string; paddingY?: number; maxWidth?: number } | undefined) || {}
+  const style = (content.style as {
+    align?: string; background?: string; backgroundImage?: string;
+    paddingY?: number; paddingX?: number; maxWidth?: number;
+    borderRadius?: number; borderWidth?: number; borderColor?: string;
+    shadow?: string; animation?: string;
+  } | undefined) || {}
   const styleProps: React.CSSProperties = {}
   if (style.align) styleProps.textAlign = style.align as React.CSSProperties['textAlign']
   if (style.background) styleProps.backgroundColor = style.background
+  if (style.backgroundImage) styleProps.backgroundImage = `url(${style.backgroundImage})`
   if (style.paddingY != null) { styleProps.paddingTop = style.paddingY; styleProps.paddingBottom = style.paddingY }
+  if (style.paddingX != null) { styleProps.paddingLeft = style.paddingX; styleProps.paddingRight = style.paddingX }
   if (style.maxWidth != null) { styleProps.maxWidth = style.maxWidth; styleProps.marginInline = 'auto' }
+  if (style.borderRadius != null) styleProps.borderRadius = style.borderRadius
+  if (style.borderWidth != null) styleProps.borderWidth = style.borderWidth
+  if (style.borderColor) styleProps.borderColor = style.borderColor
+  if (style.shadow === 'sm') styleProps.boxShadow = '0 1px 2px 0 rgb(0 0 0 / 0.05)'
+  if (style.shadow === 'md') styleProps.boxShadow = '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+  if (style.shadow === 'lg') styleProps.boxShadow = '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)'
+  if (style.borderWidth != null && style.borderWidth > 0) styleProps.borderStyle = 'solid'
+  if (style.backgroundImage) styleProps.backgroundSize = 'cover'
+  if (style.backgroundImage) styleProps.backgroundPosition = 'center'
 
   const render = () => {
     switch (type) {
@@ -129,7 +145,7 @@ export function SectionRenderer({ type, content, selected, onClick, editing, onF
       case 'TESTIMONIALS': return <TestimonialsSection content={content} editing={editing} onFieldChange={onFieldChange} onAddItem={onAddItem} />
       case 'FAQ': return <FaqSection content={content} editing={editing} onFieldChange={onFieldChange} onAddItem={onAddItem} />
       case 'VIDEO': return <VideoSection content={content} editing={editing} onFieldChange={onFieldChange} />
-      case 'GALLERY': return <GallerySection content={content} editing={editing} onFieldChange={onFieldChange} />
+      case 'GALLERY': return <GallerySection content={content} editing={editing} onFieldChange={onFieldChange} onAddItem={onAddItem} />
       case 'COUNTDOWN': return <CountdownSection content={content} editing={editing} onFieldChange={onFieldChange} />
       case 'CTA': return <CtaSection content={content} editing={editing} onFieldChange={onFieldChange} />
       case 'NEWSLETTER': return <NewsletterSection content={content} editing={editing} onFieldChange={onFieldChange} />
@@ -208,7 +224,7 @@ function TextSection({ content, editing, onFieldChange }: RenderProps & { editin
 }
 
 // ---------- FEATURES ----------
-function FeaturesSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: Record<string, unknown>) => void }) {
+function FeaturesSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: unknown) => void }) {
   const c = content as { heading?: string; subheading?: string; items?: { icon?: string; title?: string; description?: string }[] }
   const items = c.items || []
   return (
@@ -247,7 +263,7 @@ function FeaturesSection({ content, editing, onFieldChange, onAddItem }: RenderP
 }
 
 // ---------- BENEFITS ----------
-function BenefitsSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: Record<string, unknown>) => void }) {
+function BenefitsSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: unknown) => void }) {
   const c = content as { heading?: string; items?: { title?: string; description?: string }[] }
   const items = c.items || []
   return (
@@ -283,7 +299,7 @@ function BenefitsSection({ content, editing, onFieldChange, onAddItem }: RenderP
 }
 
 // ---------- PRICING ----------
-function PricingSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: Record<string, unknown>) => void }) {
+function PricingSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: unknown) => void }) {
   const c = content as { heading?: string; plans?: { name?: string; price?: number; interval?: string; features?: string[]; cta?: string; highlighted?: boolean }[] }
   const plans = c.plans || []
   return (
@@ -333,7 +349,7 @@ function PricingSection({ content, editing, onFieldChange, onAddItem }: RenderPr
 }
 
 // ---------- TESTIMONIALS ----------
-function TestimonialsSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: Record<string, unknown>) => void }) {
+function TestimonialsSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: unknown) => void }) {
   const c = content as { heading?: string; items?: { name?: string; role?: string; quote?: string }[] }
   const items = c.items || []
   return (
@@ -368,7 +384,7 @@ function TestimonialsSection({ content, editing, onFieldChange, onAddItem }: Ren
 }
 
 // ---------- FAQ ----------
-function FaqSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: Record<string, unknown>) => void }) {
+function FaqSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: unknown) => void }) {
   const c = content as { heading?: string; items?: { question?: string; answer?: string }[] }
   const items = c.items || []
   return (
@@ -431,7 +447,7 @@ function VideoSection({ content, editing, onFieldChange }: RenderProps & { editi
 }
 
 // ---------- GALLERY ----------
-function GallerySection({ content, editing, onFieldChange }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void }) {
+function GallerySection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: unknown) => void }) {
   const c = content as { heading?: string; images?: string[] }
   const images = c.images || []
   return (
@@ -450,6 +466,14 @@ function GallerySection({ content, editing, onFieldChange }: RenderProps & { edi
               </div>
             ))}
           </div>
+        )}
+        {editing && (
+          <AddItemButton
+            path="images"
+            template="https://images.unsplash.com/photo-1551434678-e076c223a692?w=800"
+            onAddItem={onAddItem}
+            className="mx-auto mt-6 w-fit"
+          />
         )}
       </div>
     </section>
@@ -519,7 +543,7 @@ function NewsletterSection({ content, editing, onFieldChange }: RenderProps & { 
 }
 
 // ---------- FOOTER ----------
-function FooterSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: Record<string, unknown>) => void }) {
+function FooterSection({ content, editing, onFieldChange, onAddItem }: RenderProps & { editing?: boolean; onFieldChange?: (path: string, value: string) => void; onAddItem?: (path: string, template: unknown) => void }) {
   const c = content as { brand?: string; tagline?: string; links?: { label?: string; url?: string }[] }
   const links = c.links || []
   return (

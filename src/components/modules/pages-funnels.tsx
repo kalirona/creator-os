@@ -379,7 +379,7 @@ function PageEditor({ page, onBack }: { page: { id: string; title: string; slug:
     setSelectedSection(updated)
     updateSection(s.id, content)
   }
-  const addSectionItem = (s: Section, path: string, template: Record<string, unknown>) => {
+  const addSectionItem = (s: Section, path: string, template: unknown) => {
     const content = JSON.parse(JSON.stringify(s.content || {}))
     const arr = (content as Record<string, unknown>)[path]
     if (Array.isArray(arr)) arr.push(template)

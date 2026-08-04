@@ -2,7 +2,7 @@
 
 import {
   Megaphone, Type, FileText, Star, Layout, ShoppingCart, HelpCircle, Video,
-  Image as ImageIcon, Clock, Mail, Plus, Palette, RotateCcw, ImagePlus,
+  Image as ImageIcon, Clock, Mail, Plus, Palette, RotateCcw, ImagePlus, Trash2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -240,13 +240,43 @@ function SectionFields({ type, content, set }: { type: string; content: Record<s
       <CInput label="CTA text" value={content.ctaText as string | undefined} set={(v) => set('ctaText', v)} />
     </>
   )
-  if (type === 'FOOTER') return (
-    <>
-      <SectionLabel>Content</SectionLabel>
-      <CInput label="Brand name" value={content.brand as string | undefined} set={(v) => set('brand', v)} />
-      <CInput label="Tagline" value={content.tagline as string | undefined} set={(v) => set('tagline', v)} />
-    </>
-  )
+  if (type === 'GALLERY') {
+    const images = (content.images as string[]) || []
+    return (
+      <>
+        <SectionLabel>Content</SectionLabel>
+        <CInput label="Heading" value={content.heading as string | undefined} set={(v) => set('heading', v)} />
+        <div><Label className="text-xs font-medium text-foreground/80">Images</Label>
+          <div className="space-y-2 mt-1">{images.map((src, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Input className="h-8 text-sm flex-1" placeholder="https://..." value={src} onChange={(e) => { const n = [...images]; n[i] = e.target.value; set('images', n) }} />
+              {src && <img src={src} alt="" className="h-8 w-8 rounded-md object-cover border" />}
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-rose-500" onClick={() => { const n = images.filter((_, idx) => idx !== i); set('images', n) }}><Trash2 className="h-3.5 w-3.5" /></Button>
+            </div>
+          ))}<Button size="sm" variant="outline" className="mt-1" onClick={() => set('images', [...images, ''])}><Plus className="h-3 w-3 mr-1" />Add image</Button></div>
+        </div>
+      </>
+    )
+  }
+  if (type === 'FOOTER') {
+    const links = (content.links as { label?: string; url?: string }[]) || []
+    return (
+      <>
+        <SectionLabel>Content</SectionLabel>
+        <CInput label="Brand name" value={content.brand as string | undefined} set={(v) => set('brand', v)} />
+        <CInput label="Tagline" value={content.tagline as string | undefined} set={(v) => set('tagline', v)} />
+        <div><Label className="text-xs font-medium text-foreground/80">Footer Links</Label>
+          <div className="space-y-2 mt-1">{links.map((l, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Input className="h-8 text-sm flex-1" placeholder="Label" value={l.label || ''} onChange={(e) => { const n = [...links]; n[i] = { ...l, label: e.target.value }; set('links', n) }} />
+              <Input className="h-8 text-sm flex-1 font-mono" placeholder="/url" value={l.url || ''} onChange={(e) => { const n = [...links]; n[i] = { ...l, url: e.target.value }; set('links', n) }} />
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-rose-500" onClick={() => { const n = links.filter((_, idx) => idx !== i); set('links', n) }}><Trash2 className="h-3.5 w-3.5" /></Button>
+            </div>
+          ))}<Button size="sm" variant="outline" className="mt-1" onClick={() => set('links', [...links, { label: 'Link', url: '#' }])}><Plus className="h-3 w-3 mr-1" />Add link</Button></div>
+        </div>
+      </>
+    )
+  }
   if (type === 'FEATURES' || type === 'BENEFITS') {
     const items = (content.items as { icon?: string; title?: string; description?: string }[]) || []
     return (
