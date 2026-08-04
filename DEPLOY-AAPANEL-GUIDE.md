@@ -37,8 +37,11 @@ This is the simplest method — upload your project files and run `docker-compos
 
 ### Step 1: Upload Project Files
 1. In aaPanel, go to **"File"** → **"Upload"** (or use the file manager).
-2. Upload your entire project folder (including `Dockerfile`, `docker-compose.yml`, `docker-entrypoint.sh`, `.dockerignore`, `.env`, and all `src/`, `prisma/`, etc.) to `/www/wwwroot/creatoros`.
-   - If uploading as a ZIP, extract it in-place using aaPanel's file manager (right-click → "Extract").
+   2. Upload your entire project folder (including `Dockerfile`, `docker-compose.yml`, `docker-entrypoint.sh`, `.dockerignore`, `.env`, and all `src/`, `prisma/`, etc.) to `/www/wwwroot/creatoros`.
+    - If uploading as a ZIP, extract it in-place using aaPanel's file manager (right-click → "Extract").
+    - **Important:** Ensure all files have **LF** (Unix) line endings, NOT CRLF (Windows). CRLF in `Dockerfile`, `.dockerignore`, and `docker-compose.yml` causes the Docker build to fail with `failed to read dockerfile: open Dockerfile: no such file or directory`.
+      - **Recommended:** Deploy via `git clone https://github.com/kalirona/creator-os.git` on the server instead of manual upload — the `.gitattributes` file in the repo enforces LF line endings automatically.
+      - **If uploading manually:** Run `sed -i 's/\r$//' Dockerfile .dockerignore docker-compose.yml docker-entrypoint.sh` after extraction to convert CRLF → LF.
 
 ### Step 2: Configure Environment Variables
 Edit the `.env` file at `/www/wwwroot/creatoros/.env`:
