@@ -5,7 +5,12 @@ import { createRequestContext } from '@/lib/context'
 export const dynamic = 'force-dynamic'
 
 async function requireAdmin() {
-  const ctx = await createRequestContext()
+  let ctx
+  try {
+    ctx = await createRequestContext()
+  } catch {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
   if (ctx.user.role !== 'ADMIN' && ctx.user.role !== 'OWNER') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -36,7 +41,11 @@ export async function PUT(req: NextRequest) {
     const data: Record<string, unknown> = {}
     for (const k of allowed) if (k in updates) data[k] = updates[k]
     const provider = await db.aiProvider.update({ where: { id }, data })
-    return NextResponse.json({ success: true, provider })
+    const masked = {
+      ...provider,
+      apiKey: provider.apiKey ? `${'*'.repeat(8)}${provider.apiKey.slice(-4)}` : '',
+    }
+    return NextResponse.json({ success: true, provider: masked })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 500 })
   }

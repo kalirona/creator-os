@@ -5,7 +5,12 @@ import { createRequestContext } from '@/lib/context'
 export const dynamic = 'force-dynamic'
 
 async function requireAdmin() {
-  const ctx = await createRequestContext()
+  let ctx
+  try {
+    ctx = await createRequestContext()
+  } catch {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
   if (ctx.user.role !== 'ADMIN' && ctx.user.role !== 'OWNER') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }

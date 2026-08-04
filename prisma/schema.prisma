@@ -14,7 +14,7 @@ model User {
   name          String
   avatarUrl     String?
   bio           String?
-  role          String   @default("OWNER") // global account role
+   role          String   @default("USER") // global account role: USER | ADMIN | OWNER  (workspace-level roles live in WorkspaceMember)
   credits       Int      @default(500)
   passwordHash  String?  // nullable for OAuth-only users
   createdAt     DateTime @default(now())
