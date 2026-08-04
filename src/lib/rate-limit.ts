@@ -2,7 +2,7 @@ import { headers } from 'next/headers'
 
 const attempts = new Map<string, { count: number; resetAt: number }>()
 
-const LIMITS: Record<'login' | 'register', number> = { login: 10, register: 5 }
+const LIMITS: Record<string, number> = { login: 10, register: 5, 'forgot-password': 5 }
 const WINDOW_MS = 15 * 60 * 1000 // 15 minutes
 
 function normalizeIp(ip: string | null | undefined): string {
@@ -21,7 +21,7 @@ export function getClientIpFromRequest(xForwardedFor: string | null, xRealIp: st
 
 export function checkRateLimit(
   ip: string,
-  action: 'login' | 'register'
+  action: string
 ): { allowed: boolean; remaining: number; resetAt: number } {
   const now = Date.now()
   const limit = LIMITS[action]

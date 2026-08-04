@@ -4,6 +4,7 @@ import { login } from './actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Sparkles, Mail, Lock } from 'lucide-react'
 import Link from 'next/link'
 import { useActionState } from 'react'
@@ -55,6 +56,16 @@ export default function LoginPage() {
                 <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input id="password" name="password" type="password" placeholder="••••••••" required disabled={isPending} className="pl-9" />
               </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Checkbox id="rememberMe" name="rememberMe" />
+                <Label htmlFor="rememberMe" className="text-sm font-normal">Remember me</Label>
+              </div>
+              <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+                Forgot password?
+              </Link>
             </div>
 
             <Button type="submit" className="w-full" disabled={isPending}>

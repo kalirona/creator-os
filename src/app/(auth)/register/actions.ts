@@ -27,13 +27,19 @@ export const register = validatedAction(registerSchema, async (data) => {
     return { error: 'This email is already in use' }
   }
 
+  const slug = data.workspaceSlug || data.workspaceName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  const existingWorkspace = await db.workspace.findUnique({ where: { slug } })
+  if (existingWorkspace) {
+    return { error: 'Workspace slug already taken' }
+  }
+
   const passwordHash = await hashPassword(data.password)
 
   const result = await db.$transaction(async (tx) => {
     const workspace = await tx.workspace.create({
       data: {
         name: data.workspaceName,
-        slug: data.workspaceName.toLowerCase().replace(/\s+/g, '-'),
+        slug,
       },
     })
 

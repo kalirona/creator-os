@@ -1,0 +1,14 @@
+# Docker files — must use LF (CRLF causes "Dockerfile: no such file or directory" on Linux hosts)
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+docker-compose.yml text eol=lf
+docker-entrypoint.sh text eol=lf
+
+# Shell scripts — must use LF (CRLF breaks shebangs on Linux)
+*.sh text eol=lf
+
+# Configuration files — use LF for cross-platform compatibility
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.md text eol=lf

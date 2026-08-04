@@ -33,6 +33,12 @@ model User {
   auditLogs     AuditLog[]
   activityLogs  ActivityLog[]
   mediaAssets   MediaAsset[]
+  communityMembers CommunityMember[]
+  communitySpaceMembers CommunitySpaceMember[]
+  communityEventAttendees CommunityEventAttendee[]
+  emailVerifications EmailVerification[]
+  passwordResets PasswordReset[]
+  invitationsSent Invitation[]
 }
 
 model Workspace {
@@ -48,6 +54,22 @@ model Workspace {
   courses       Course[]
   products      Product[]
   posts         CommunityPost[]
+  communityPosts Post[] @relation("WorkspacePosts")
+  communities Community[] @relation("CommunityWorkspace")
+  communityReactions Reaction[] @relation("WorkspaceReactions")
+  communityUserBadges CommunityUserBadge[]
+  communityComments Comment[]
+  communityMembers CommunityMember[]
+  communitySpaces CommunitySpace[]
+  communitySpaceMembers CommunitySpaceMember[]
+  communityEvents CommunityEvent[]
+  communityEventAttendees CommunityEventAttendee[]
+  communityInvitations CommunityInvitation[]
+  communityBadges CommunityBadge[]
+  communityNotifications CommunityNotification[]
+  communityReports CommunityReport[]
+  communityResources CommunityResource[]
+  communityAnnouncements CommunityAnnouncement[]
   customers     Customer[]
   mediaAssets   MediaAsset[]
   mediaFolders  MediaFolder[]
@@ -55,6 +77,7 @@ model Workspace {
   affiliates    Affiliate[]
   pages         WebPage[]
   memberships   MembershipPlan[]
+  invitations   Invitation[]
 }
 
 model WorkspaceMember {
@@ -388,6 +411,56 @@ model AdminSetting {
   updatedAt   DateTime @updatedAt
 }
 
+// ===== Auth Extensions =====
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  verifiedAt DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Invitation {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  inviterId    String
+  inviteeEmail String
+  role         String   @default("MEMBER")
+  token        String   @unique
+  status       String   @default("PENDING") // PENDING | ACCEPTED | EXPIRED | REVOKED
+  expiresAt    DateTime
+  acceptedAt   DateTime?
+  createdAt    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  inviter   User      @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([token])
+}
+
 // ===== Pages & Funnels system =====
 
 model Page {
@@ -650,5 +723,427 @@ model MediaUsage {
 
   @@unique([assetId, resourceType, resourceId, field])
   @@index([resourceType, resourceId])
+}
+
+// ===== Community Module =====
+
+model Community {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  slug        String
+  description String   @default("")
+  bio         String   @default("")
+  iconUrl     String?
+  bannerUrl   String?
+  privacy     String   @default("PUBLIC") // PUBLIC | PRIVATE | SECRET
+  memberApproval String @default("AUTO") // AUTO | MANUAL | APPROVAL_REQUIRED
+  allowPosting String  @default("ALL") // ALL | MEMBERS_ONLY | MODERATORS_ONLY
+  allowMedia  Boolean  @default(true)
+  maxFileSize Int      @default(10485760) // 10MB
+  allowComments Boolean @default(true)
+  allowReactions Boolean @default(true)
+  allowInvites Boolean  @default(true)
+  allowSearch Boolean   @default(true)
+  allowRSS    Boolean   @default(false)
+  color       String   @default("#2563eb")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace  Workspace @relation("CommunityWorkspace", fields: [workspaceId], references: [id], onDelete: Cascade)
+  spaces     CommunitySpace[]
+  posts      Post[]
+  members    CommunityMember[]
+  events     CommunityEvent[]
+  eventAttendees CommunityEventAttendee[]
+  invitations CommunityInvitation[]
+  badges     CommunityBadge[]
+  userBadges   CommunityUserBadge[]
+  notifications CommunityNotification[]
+  reports    CommunityReport[]
+  resources  CommunityResource[]
+  announcements CommunityAnnouncement[]
+  comments     Comment[]
+  reactions    Reaction[] @relation("CommunityReactions")
+  spaceMembers CommunitySpaceMember[] @relation("CommunitySpaceMembers")
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
+}
+
+model CommunityMember {
+  id          String   @id @default(cuid())
+  communityId String
+  userId      String
+  workspaceId String
+  role        String   @default("MEMBER") // OWNER | ADMIN | MODERATOR | MEMBER | GUEST
+  status      String   @default("ACTIVE") // ACTIVE | PENDING | SUSPENDED | BANNED
+  reputation  Int      @default(0)
+  points      Int      @default(0)
+  level       Int      @default(1)
+  bio         String   @default("")
+  avatarUrl   String?
+  coverUrl    String?
+  website     String?
+  socialLinks String   @default("{}") // JSON: { twitter: "", linkedin: "", etc. }
+  badges      String   @default("[]") // JSON array of badge IDs
+  coursesCompleted Int @default(0)
+  productsPurchased Int @default(0)
+  joinedAt    DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  community  Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  postAuthor Post[]
+  commentAuthor Comment[]
+  reactions   Reaction[]
+  invitationsSent CommunityInvitation[]
+  reportsAuthored CommunityReport[]
+  organizedEvents CommunityEvent[]
+  resources   CommunityResource[]
+  announcements CommunityAnnouncement[]
+  awardedBadges CommunityUserBadge[] @relation("BadgeRecipient")
+  awardedBadgesTo CommunityUserBadge[] @relation("BadgeAwarder")
+  notifications CommunityNotification[]
+
+  @@unique([communityId, userId])
+  @@index([communityId, role])
+  @@index([communityId, status])
+  @@index([communityId, reputation])
+}
+
+model CommunitySpace {
+  id          String   @id @default(cuid())
+  communityId String
+  workspaceId String
+  name        String
+  slug        String
+  description String   @default("")
+  iconUrl     String?
+  bannerUrl   String?
+  color       String   @default("#2563eb")
+  privacy     String   @default("PUBLIC") // PUBLIC | PRIVATE | SECRET
+  isPinned    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  rules       String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  community  Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members    CommunitySpaceMember[]
+  posts      Post[]
+  events     CommunityEvent[]
+  resources  CommunityResource[]
+
+  @@unique([communityId, slug])
+  @@index([communityId])
+}
+
+model CommunitySpaceMember {
+  id          String   @id @default(cuid())
+  spaceId     String
+  communityId String
+  userId      String
+  workspaceId String
+  role        String   @default("MEMBER") // OWNER | MODERATOR | MEMBER
+  joinedAt    DateTime @default(now())
+
+  space      CommunitySpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  community  Community      @relation("CommunitySpaceMembers", fields: [communityId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, userId])
+  @@index([spaceId, role])
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  communityId String
+  workspaceId String
+  spaceId     String?
+  authorId    String
+  type        String   @default("TEXT") // TEXT | IMAGE | VIDEO | DOCUMENT | POLL | QUESTION | ANNOUNCEMENT | EVENT | AI_GENERATED
+  title       String?
+  content     String   @default("")
+  mediaIds    String   @default("[]") // JSON array of media asset IDs
+  pollOptions String   @default("[]") // JSON array for poll options
+  pollVotes   String   @default("{}") // JSON map of option index to vote count
+  isPinned    Boolean  @default(false)
+  isLocked    Boolean  @default(false)
+  isDraft     Boolean  @default(false)
+  isScheduled Boolean  @default(false)
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  viewCount   Int      @default(0)
+  likeCount   Int      @default(0)
+  commentCount Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  community  Community   @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  workspace  Workspace   @relation("WorkspacePosts", fields: [workspaceId], references: [id], onDelete: Cascade)
+  space      CommunitySpace? @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  author     CommunityMember @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments   Comment[]
+  reactions  Reaction[]
+  notifications CommunityNotification[]
+  reports    CommunityReport[]
+
+  @@index([communityId, createdAt])
+  @@index([communityId, spaceId])
+  @@index([communityId, type])
+  @@index([authorId])
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  postId      String
+  communityId String
+  workspaceId String
+  authorId    String
+  parentId    String?  // for nested replies
+  content     String
+  mentions    String   @default("[]") // JSON array of mentioned user IDs
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  community  Community   @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  post       Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author     CommunityMember @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent     Comment?    @relation("Thread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    Comment[]   @relation("Thread")
+  reactions  Reaction[]
+  reports    CommunityReport[]
+
+  @@index([postId, createdAt])
+  @@index([postId, parentId])
+}
+
+model Reaction {
+  id          String   @id @default(cuid())
+  postId      String?
+  commentId   String?
+  communityId String
+  workspaceId String
+  userId      String
+  type        String   // LIKE | LOVE | CELEBRATE | INSIGHTFUL | FUNNY
+  createdAt   DateTime @default(now())
+
+  community  Community   @relation("CommunityReactions", fields: [communityId], references: [id], onDelete: Cascade)
+  workspace  Workspace   @relation("WorkspaceReactions", fields: [workspaceId], references: [id], onDelete: Cascade)
+  user       CommunityMember @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post       Post?       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment    Comment?    @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@unique([commentId, userId])
+  @@index([communityId])
+}
+
+model CommunityEvent {
+  id          String   @id @default(cuid())
+  communityId String
+  workspaceId String
+  spaceId     String?
+  organizerId String
+  title       String
+  description String   @default("")
+  location    String   @default("")
+  meetingUrl  String?
+  startsAt    DateTime
+  endsAt      DateTime
+  type        String   @default("MEETUP") // MEETUP | WEBINAR | OFFICE_HOURS | PRODUCT_LAUNCH | COURSE_RELEASE
+  maxAttendees Int?
+  waitlistEnabled Boolean @default(false)
+  reminderSent Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  community  Community   @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  space      CommunitySpace? @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  organizer  CommunityMember @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  attendees  CommunityEventAttendee[]
+
+  @@index([communityId, startsAt])
+  @@index([communityId, type])
+}
+
+model CommunityEventAttendee {
+  id          String   @id @default(cuid())
+  eventId     String
+  communityId String
+  workspaceId String
+  userId      String
+  status      String   @default("GOING") // GOING | MAYBE | WAITLIST | DECLINED
+  rsvpAt      DateTime @default(now())
+
+  event      CommunityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  community  Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId, status])
+}
+
+model CommunityInvitation {
+  id          String   @id @default(cuid())
+  communityId String
+  workspaceId String
+  inviterId   String
+  inviteeEmail String
+  inviteeName String?
+  role        String   @default("MEMBER")
+  spaceId     String?
+  token       String   @unique
+  status      String   @default("PENDING") // PENDING | ACCEPTED | EXPIRED | REVOKED
+  expiresAt   DateTime
+  sentAt      DateTime @default(now())
+  respondedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  community  Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  inviter    CommunityMember @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([communityId, status])
+  @@index([token])
+}
+
+model CommunityBadge {
+  id          String   @id @default(cuid())
+  communityId String
+  workspaceId String
+  name        String
+  description String   @default("")
+  iconUrl     String?
+  color       String   @default("#2563eb")
+  criteria    String   @default("") // JSON criteria for auto-award
+  isAuto      Boolean  @default(false)
+  isHidden    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  community  Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  awardedTo  CommunityUserBadge[]
+
+  @@index([communityId])
+}
+
+model CommunityUserBadge {
+  id          String   @id @default(cuid())
+  badgeId     String
+  communityId String
+  workspaceId String
+  userId      String
+  awardedBy   String?  // user ID who awarded it manually
+  reason      String   @default("")
+  createdAt   DateTime @default(now())
+
+  badge      CommunityBadge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  community  Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user       CommunityMember @relation("BadgeRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  awardedByMember CommunityMember? @relation("BadgeAwarder", fields: [awardedBy], references: [id], onDelete: SetNull)
+
+  @@index([communityId, userId])
+}
+
+model CommunityNotification {
+  id          String   @id @default(cuid())
+  communityId String
+  workspaceId String
+  userId      String
+  postId      String?
+  type        String   // MENTION | REPLY | LIKE | NEW_FOLLOWER | ANNOUNCEMENT | EVENT_REMINDER | POST_APPROVED
+  title       String
+  body        String   @default("")
+  link        String?  // URL to the relevant resource
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  community  Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user       CommunityMember @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post       Post?         @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  @@index([communityId, userId, isRead])
+  @@index([communityId, createdAt])
+}
+
+model CommunityReport {
+  id          String   @id @default(cuid())
+  communityId String
+  workspaceId String
+  reporterId  String
+  postId      String?
+  commentId   String?
+  reason      String
+  description String   @default("")
+  status      String   @default("PENDING") // PENDING | REVIEWED | RESOLVED | DISMISSED
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+
+  community  Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  reporter   CommunityMember @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  post       Post?           @relation(fields: [postId], references: [id], onDelete: SetNull)
+  comment    Comment?        @relation(fields: [commentId], references: [id], onDelete: SetNull)
+
+  @@index([communityId, status])
+  @@index([communityId, createdAt])
+}
+
+model CommunityResource {
+  id          String   @id @default(cuid())
+  communityId String
+  workspaceId String
+  spaceId     String?
+  authorId    String
+  title       String
+  description String   @default("")
+  fileUrl     String
+  fileName    String
+  fileSize    Int
+  mimeType    String
+  downloads   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  community  Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  space      CommunitySpace? @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  author     CommunityMember @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([communityId, createdAt])
+  @@index([communityId, spaceId])
+}
+
+model CommunityAnnouncement {
+  id          String   @id @default(cuid())
+  communityId String
+  workspaceId String
+  authorId    String
+  title       String
+  content     String
+  isPinned    Boolean  @default(false)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  community  Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author     CommunityMember @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([communityId, startsAt])
+  @@index([communityId, isPinned])
 }
 

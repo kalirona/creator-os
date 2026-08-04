@@ -5,6 +5,8 @@ export type Resource =
   | 'product'
   | 'community_post'
   | 'community_comment'
+  | 'community_member'
+  | 'community_space'
   | 'order'
   | 'customer'
   | 'email_campaign'
@@ -34,6 +36,8 @@ const OWNER_PERMISSIONS: Permission[] = [
   { role: 'OWNER', resource: 'product', action: 'manage' },
   { role: 'OWNER', resource: 'community_post', action: 'manage' },
   { role: 'OWNER', resource: 'community_comment', action: 'manage' },
+  { role: 'OWNER', resource: 'community_member', action: 'manage' },
+  { role: 'OWNER', resource: 'community_space', action: 'manage' },
   { role: 'OWNER', resource: 'order', action: 'manage' },
   { role: 'OWNER', resource: 'customer', action: 'manage' },
   { role: 'OWNER', resource: 'email_campaign', action: 'manage' },
@@ -54,6 +58,8 @@ const ADMIN_PERMISSIONS: Permission[] = [
   { role: 'ADMIN', resource: 'product', action: 'manage' },
   { role: 'ADMIN', resource: 'community_post', action: 'manage' },
   { role: 'ADMIN', resource: 'community_comment', action: 'manage' },
+  { role: 'ADMIN', resource: 'community_member', action: 'manage' },
+  { role: 'ADMIN', resource: 'community_space', action: 'manage' },
   { role: 'ADMIN', resource: 'order', action: 'read' },
   { role: 'ADMIN', resource: 'customer', action: 'manage' },
   { role: 'ADMIN', resource: 'email_campaign', action: 'manage' },
