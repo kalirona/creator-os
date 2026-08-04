@@ -37,9 +37,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
-    const { token } = await createSession(user.id)
+    // Resolve the user's first workspace membership so the session carries it
+    const membership = await db.workspaceMember.findFirst({
+      where: { userId: user.id },
+      select: { workspaceId: true },
+      orderBy: { createdAt: 'asc' },
+    })
 
-    const response = NextResponse.json({ success: true, user: { id: user.id, email: user.email, name: user.name } })
+    const { token } = await createSession(user.id, membership?.workspaceId)
+
+    const response = NextResponse.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role }, workspaceId: membership?.workspaceId })
     response.cookies.set(authConfig.cookieName, token, {
       maxAge: authConfig.sessionMaxAge,
       httpOnly: true,

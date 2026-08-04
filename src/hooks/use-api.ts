@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface UseApiState<T> {
   data: T | null
@@ -9,6 +10,7 @@ interface UseApiState<T> {
 }
 
 export function useApi<T>(url: string | null, deps: unknown[] = []): UseApiState<T> {
+  const router = useRouter()
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(!!url)
   const [error, setError] = useState<string | null>(null)
@@ -27,14 +29,23 @@ export function useApi<T>(url: string | null, deps: unknown[] = []): UseApiState
     setError(null)
     fetch(url, { credentials: 'include' })
       .then(async (r) => {
+        if (r.status === 401) {
+          // Session invalid/missing — bounce to login so the user can re-authenticate
+          // instead of surfacing "Request failed (401)".
+          if (active) router.replace('/login')
+          throw new Error('Authentication required')
+        }
         if (!r.ok) throw new Error(`Request failed (${r.status})`)
         const json = await r.json()
         if (active) setData(json)
       })
-      .catch((e) => active && setError(e.message))
+      .catch((e) => {
+        if (e instanceof Error && e.message === 'Authentication required') return
+        if (active) setError(e.message)
+      })
       .finally(() => active && setLoading(false))
     return () => { active = false }
-  }, [url, tick, ...deps])
+  }, [url, tick, ...deps, router])
 
   return { data, loading, error, refetch }
 }

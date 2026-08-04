@@ -50,7 +50,7 @@ export async function createRequestContext(): Promise<RequestContext> {
     throw new Error('Invalid session')
   }
 
-  const [user, session, membership, flags] = await Promise.all([
+   const [user, session, membership, flags] = await Promise.all([
     db.user.findUnique({
       where: { id: payload.userId },
       select: {
@@ -60,7 +60,7 @@ export async function createRequestContext(): Promise<RequestContext> {
     }),
     db.session.findUnique({
       where: { id: payload.sessionId },
-      select: { id: true, userId: true, workspaceId: true },
+      select: { id: true, userId: true, workspaceId: true, expiresAt: true },
     }),
     payload.workspaceId
       ? db.workspaceMember.findFirst({
@@ -71,8 +71,21 @@ export async function createRequestContext(): Promise<RequestContext> {
     getFeatureFlags(payload.workspaceId),
   ])
 
-  if (!user) throw new Error('User not found')
-  if (!session) throw new Error('Session not found')
+  // Session missing/invalid, or session references a user that no longer exists
+  // (orphaned session). These are authentication failures — never 500s.
+  if (!session || !user) {
+    if (session) {
+      // Reap the orphaned session so it can't keep causing failures.
+      await db.session.delete({ where: { id: payload.sessionId } }).catch(() => {})
+    }
+    throw new Error('Authentication required')
+  }
+
+  const sessionAge = new Date(payload.exp as number).getTime() - Date.now()
+  if (session.expiresAt < new Date() || sessionAge <= 0) {
+    await db.session.delete({ where: { id: payload.sessionId } }).catch(() => {})
+    throw new Error('Authentication required')
+  }
 
   let workspace
   if (membership?.workspace) {
@@ -90,7 +103,7 @@ export async function createRequestContext(): Promise<RequestContext> {
     workspace = member?.workspace
   }
 
-  if (!workspace) throw new Error('No workspace found')
+   if (!workspace) throw new Error('Authentication required')
 
   const permissions = await getUserPermissions(user.id, workspace.id)
 

@@ -47,10 +47,13 @@ const PIE_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(-
 
 export function DashboardModule() {
   const { data, loading, error, refetch } = useApi<DashData>('/api/data/dashboard')
+  const { data: meData } = useApi<{ authenticated: boolean; user?: { name?: string; role?: string } }>('/api/auth/me', [])
   const setActiveModule = useAppStore((s) => s.setActiveModule)
 
   if (loading) return <LoadingState size="lg" text="Loading dashboard..." />
   if (error || !data) return <ErrorState description={error || 'Failed to load dashboard.'} action={{ label: 'Retry', onClick: refetch }} />
+
+  const displayName = meData?.user?.name || 'there'
 
   return (
     <div className="space-y-6 p-6">
@@ -69,7 +72,7 @@ export function DashboardModule() {
               </Badge>
               <span className="text-xs text-muted-foreground">Workspace: {data.workspace.name}</span>
             </div>
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Welcome back, Alex 👋</h2>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Welcome back{displayName !== 'there' ? `, ${displayName}` : ''} 👋</h2>
             <p className="text-sm text-muted-foreground max-w-lg">
               Your creator business is up <span className="font-semibold text-emerald-500">12.4%</span> this week.
               You have 3 new sales and 2 AI generations waiting.

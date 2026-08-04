@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import {
   ChevronLeft,
   Sparkles,
@@ -28,6 +29,7 @@ import {
   FolderOpen,
   Globe,
   CreditCard,
+  LogOut,
 } from 'lucide-react'
 import { NAV_GROUPS, KEYBOARD_SHORTCUTS } from '@/lib/nav'
 import { useAppStore } from '@/store/app-store'
@@ -60,6 +62,22 @@ const itemIcons: Record<string, any> = {
   'media-library': FolderOpen,
 }
 
+const ROLE_LABEL: Record<string, string> = {
+  OWNER: 'Owner', ADMIN: 'Admin', MANAGER: 'Manager', INSTRUCTOR: 'Instructor',
+  MODERATOR: 'Moderator', MEMBER: 'Member', STUDENT: 'Student',
+  AFFILIATE: 'Affiliate', GUEST: 'Guest',
+}
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase() || 'U'
+}
+
 export function Sidebar() {
   const {
     activeModule,
@@ -75,8 +93,39 @@ export function Sidebar() {
     setSearchQuery,
   } = useAppStore()
 
-  const [credits] = useState(4280)
+  const [credits, setCredits] = useState(4280)
+  const [displayName, setDisplayName] = useState('Alex Rivera')
+  const [displayRole, setDisplayRole] = useState('Owner')
+  const [avatarInitials, setAvatarInitials] = useState('AR')
   const [buyOpen, setBuyOpen] = useState(false)
+
+  const router = useRouter()
+
+  const handleLogout = () => {
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => {
+      router.replace('/login')
+    })
+  }
+
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then(async (r) => {
+        if (!r.ok) throw new Error('unauthenticated')
+        return r.json()
+      })
+      .then((data) => {
+        if (data?.authenticated && data.user) {
+          const name = data.user.name || 'User'
+          setDisplayName(name)
+          setDisplayRole(ROLE_LABEL[data.user.workspaceRole || data.user.role] || 'Member')
+          setCredits(data.user.credits ?? credits)
+          setAvatarInitials(initials(name))
+        }
+      })
+      .catch(() => {
+        /* leave demo defaults */
+      })
+  }, [])
 
   const allItems = useMemo(() => {
     return NAV_GROUPS.flatMap((group) => group.items)
@@ -349,23 +398,35 @@ export function Sidebar() {
                   sidebarCollapsed && 'justify-center'
                 )}
               >
-                <Avatar className="h-8 w-8 ring-2 ring-border">
-                  <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">AR</AvatarFallback>
-                </Avatar>
-                {!sidebarCollapsed && (
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="text-xs font-semibold truncate">Alex Rivera</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Owner</p>
-                  </div>
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="ml-2">
-              <p>Alex Rivera — Owner</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+                 <Avatar className="h-8 w-8 ring-2 ring-border">
+                   <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">{avatarInitials}</AvatarFallback>
+                 </Avatar>
+                 {!sidebarCollapsed && (
+                   <div className="flex-1 text-left min-w-0">
+                     <p className="text-xs font-semibold truncate">{displayName}</p>
+                     <p className="text-[10px] text-muted-foreground truncate">{displayRole}</p>
+                   </div>
+                 )}
+               </button>
+             </TooltipTrigger>
+             <TooltipContent side="right" className="ml-2">
+               <p>{displayName} — {displayRole}</p>
+             </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {!sidebarCollapsed && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-xs h-8"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-3.5 w-3.5 mr-2" />
+                Sign out
+              </Button>
+            )}
+          </div>
 
       <BuyCreditsDialog
         open={buyOpen}

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { User, Building2, CreditCard, Users, Shield, Bell, Globe, Key, Crown, Zap } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useAppStore } from '@/store/app-store'
+import { useApi } from '@/hooks/use-api'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -26,6 +27,16 @@ const TEAM = [
 
 export function SettingsModule() {
   const { theme, toggleTheme } = useAppStore()
+  const { data: me } = useApi<{ authenticated: boolean; user?: { name?: string; email?: string; role?: string } }>('/api/auth/me', [])
+  const meUser = me?.authenticated ? me.user : undefined
+  const defaultName = meUser?.name || 'Alex Rivera'
+  const defaultEmail = meUser?.email || 'founder@creatoros.io'
+  const defaultUsername = meUser?.name
+    ? '@' + meUser.name.toLowerCase().replace(/\s+/g, '.')
+    : '@alexrivera'
+  const displayName = defaultName || 'User'
+  const avatarInitials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'U'
+
   const [twoFA, setTwoFA] = useState(true)
   const [notifEmail, setNotifEmail] = useState(true)
   const [notifPush, setNotifPush] = useState(false)
@@ -33,6 +44,17 @@ export function SettingsModule() {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false)
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [fullName, setFullName] = useState(defaultName)
+  const [email, setEmail] = useState(defaultEmail)
+  const [username, setUsername] = useState(defaultUsername)
+
+  useEffect(() => {
+    if (meUser) {
+      if (meUser.name) setFullName(meUser.name)
+      if (meUser.email) setEmail(meUser.email)
+      if (meUser.name) setUsername('@' + meUser.name.toLowerCase().replace(/\s+/g, '.'))
+    }
+  }, [meUser])
 
   const handleSaveProfile = () => {
     setSaving(true)
@@ -75,19 +97,19 @@ export function SettingsModule() {
             <CardHeader><CardTitle className="text-base">Profile</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16"><AvatarFallback className="bg-primary/15 text-primary text-lg">AR</AvatarFallback></Avatar>
-                <div>
-                  <Button size="sm" variant="outline" onClick={() => setShowAvatarDialog(true)}>Change avatar</Button>
-                  <p className="text-xs text-muted-foreground mt-1.5">JPG, PNG or GIF. Max 2MB.</p>
-                </div>
-              </div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div><Label>Full name</Label><Input defaultValue="Alex Rivera" className="mt-1.5" /></div>
-                <div><Label>Email</Label><Input defaultValue="founder@creatoros.io" className="mt-1.5" /></div>
-                <div><Label>Username</Label><Input defaultValue="@alexrivera" className="mt-1.5" /></div>
-                <div><Label>Timezone</Label><Select defaultValue="Asia/Manila"><SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Asia/Manila">Asia/Manila (PHT)</SelectItem><SelectItem value="America/New_York">America/New_York (EST)</SelectItem><SelectItem value="Europe/London">Europe/London (GMT)</SelectItem></SelectContent></Select></div>
-              </div>
-              <div><Label>Bio</Label><Textarea defaultValue="Creator educator building the future of online business." className="mt-1.5" rows={3} /></div>
+                 <Avatar className="h-16 w-16"><AvatarFallback className="bg-primary/15 text-primary text-lg">{avatarInitials}</AvatarFallback></Avatar>
+                 <div>
+                   <Button size="sm" variant="outline" onClick={() => setShowAvatarDialog(true)}>Change avatar</Button>
+                   <p className="text-xs text-muted-foreground mt-1.5">JPG, PNG or GIF. Max 2MB.</p>
+                 </div>
+               </div>
+               <div className="grid sm:grid-cols-2 gap-4">
+                 <div><Label>Full name</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1.5" /></div>
+                 <div><Label>Email</Label><Input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5" type="email" /></div>
+                 <div><Label>Username</Label><Input value={username} onChange={(e) => setUsername(e.target.value)} className="mt-1.5" /></div>
+                 <div><Label>Timezone</Label><Select defaultValue="Asia/Manila"><SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Asia/Manila">Asia/Manila (PHT)</SelectItem><SelectItem value="America/New_York">America/New_York (EST)</SelectItem><SelectItem value="Europe/London">Europe/London (GMT)</SelectItem></SelectContent></Select></div>
+               </div>
+               <div><Label>Bio</Label><Textarea defaultValue="Creator educator building the future of online business." className="mt-1.5" rows={3} /></div>
               <div className="flex justify-end gap-2"><Button variant="outline" size="sm">Cancel</Button><Button size="sm" onClick={handleSaveProfile} disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</Button></div>
             </CardContent>
           </Card>
